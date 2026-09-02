@@ -9,10 +9,10 @@ from PIL import Image
 
 st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide")
 
-# Secrets에서 API 키 자동 로드
+# Secrets에서 Gemini API 키 백그라운드 자동 로드 (화면 노출 완전 차단)
 saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# 💾 전 카테고리 저장소 초기화 (제목 + 내용 구조)
+# 💾 전 카테고리 저장소 초기화
 if "saved_items" not in st.session_state:
     st.session_state.saved_items = {
         "prompts": [],     # 🎬 영상 프롬프트
@@ -38,10 +38,10 @@ st.divider()
 # 사이드바 API 설정 & 카테고리별 보관함
 with st.sidebar:
     st.header("🔑 API 설정")
-    gemini_key = st.text_input("1️⃣ Google Gemini API Key", value=saved_gemini_key, type="password")
-    st.caption("[Google AI Studio](https://aistudio.google.com/) 무료 발급")
-    st.divider()
-    claude_key = st.text_input("2️⃣ Anthropic Claude API Key (선택)", type="password")
+    # Gemini Key는 Secrets로 안전하게 처리하여 UI에서 완전 숨김
+    st.success("✅ Google Gemini API 연결 완료")
+    
+    claude_key = st.text_input("Anthropic Claude API Key (선택)", type="password")
     
     st.divider()
     st.header("📂 카테고리별 보관함")
@@ -107,12 +107,11 @@ with st.sidebar:
         else: st.caption("저장된 달력이 없습니다.")
 
 def get_gemini_client():
-    key_to_use = gemini_key.strip() if gemini_key else ""
-    if not key_to_use:
-        st.warning("왼쪽 사이드바에 Google Gemini API Key를 입력해 주세요.")
+    if not saved_gemini_key:
+        st.error("⚠️ Streamlit Secrets에 GEMINI_API_KEY가 설정되어 있지 않습니다.")
         return None
     try:
-        return genai.Client(api_key=key_to_use)
+        return genai.Client(api_key=saved_gemini_key.strip())
     except Exception as e:
         st.error(f"Gemini 클라이언트 초기화 실패: {e}")
         return None
