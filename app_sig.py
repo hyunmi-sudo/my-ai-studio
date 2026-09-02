@@ -129,22 +129,11 @@ if btn_analyze:
                    (5번 곡까지 동일 형식)
                 """
                 
-                response = None
-                # 503 과부하 대비 1차(2.5-flash), 2차(1.5-flash) 자동 분기 시도
-                try:
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=[prompt, image_data]
-                    )
-                except Exception as first_e:
-                    if "503" in str(first_e) or "UNAVAILABLE" in str(first_e):
-                        time.sleep(2)
-                        response = client.models.generate_content(
-                            model='gemini-1.5-flash',
-                            contents=[prompt, image_data]
-                        )
-                    else:
-                        raise first_e
+                # 최신 전용 모델 gemini-3.6-flash 사용
+                response = client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=[prompt, image_data]
+                )
                 
                 if response and response.text:
                     st.session_state.sig_result = response.text
@@ -157,7 +146,7 @@ if btn_analyze:
             except Exception as e:
                 err_str = str(e)
                 if "503" in err_str or "UNAVAILABLE" in err_str:
-                    st.warning("⚡ 현재 구글 AI 서버에 순간 트래픽이 폭주하고 있습니다. 약 5초 후 아래 버튼을 눌러 다시 시도해주세요!")
+                    st.warning("⚡ 현재 구글 AI 서버에 순간 트래픽이 폭주하고 있습니다. 약 5초 후 다시 시도해주세요!")
                 elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                     st.warning("⏳ 트래픽 사용량이 일시 도달했습니다. 10초 후 다시 시도해 주세요!")
                 else:
