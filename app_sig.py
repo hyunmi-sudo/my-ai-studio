@@ -128,16 +128,11 @@ if btn_analyze:
                    (5번 곡까지 동일 형식)
                 """
                 
-                try:
-                    response = client.models.generate_content(
-                        model='gemini-3.6-flash',
-                        contents=[prompt, image_data]
-                    )
-                except Exception:
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=[prompt, image_data]
-                    )
+                # 최신 안정화 모델(gemini-2.5-flash) 단일 지정
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[prompt, image_data]
+                )
                 
                 if response and response.text:
                     st.session_state.sig_result = response.text
@@ -164,7 +159,6 @@ if st.session_state.sig_result:
             st.markdown(f"#### 🎵 {idx+1}. {song_title}")
             encoded_query = urllib.parse.quote(f"{song_title} Official Audio")
             
-            # 차단되지 않는 유튜브 앰베드 플레이어 방식 적용
             html_player = f"""
             <iframe width="100%" height="280" 
                 src="https://www.youtube-nocookie.com/embed?listType=search&list={encoded_query}" 
