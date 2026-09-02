@@ -1,5 +1,6 @@
 import os
 import io
+import time
 import streamlit as st
 from google import genai
 from PIL import Image
@@ -128,7 +129,6 @@ if btn_analyze:
                    (5번 곡까지 동일 형식)
                 """
                 
-                # 안내 메시지에 맞춘 최신 모델 gemini-3.6-flash 지정
                 response = client.models.generate_content(
                     model='gemini-3.6-flash',
                     contents=[prompt, image_data]
@@ -137,13 +137,15 @@ if btn_analyze:
                 if response and response.text:
                     st.session_state.sig_result = response.text
                     
-                    # 추천 곡명 추출
                     extracted_songs = re.findall(r'[①②③④⑤12345][.\s\)]*([^\n\r-]+-[^\n\r]+)', response.text)
                     if not extracted_songs:
                         extracted_songs = re.findall(r'(\w+[\s\w]*\s*-\s*[\w\s♡%()]+)', response.text)
                     st.session_state.songs_list = [s.strip('* ') for s in extracted_songs][:5]
             except Exception as e:
-                st.error(f"⚠️ 분석 오류 발생: {e}")
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    st.warning("⏳ 구글 API 무료 트래픽 요청 한도에 도달했습니다. 약 15초~30초 후 다시 [분석 실행] 버튼을 눌러주세요!")
+                else:
+                    st.error(f"⚠️ 분석 오류 발생: {e}")
 
 # 리포트 및 유튜브 플레이어 연동
 if st.session_state.sig_result:
