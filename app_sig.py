@@ -4,6 +4,7 @@ import streamlit as st
 from google import genai
 from PIL import Image
 import urllib.parse
+from yt_dlp import YoutubeDL
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
@@ -149,10 +150,38 @@ if st.session_state.sig_result:
 
 st.divider()
 
-# ✂️ 실시간 음원 자르기 스튜디오
-st.subheader("✂️ MP3/음원 자르기 & 플레이어 스튜디오")
-st.caption("소장 중인 MP3 파일이나 음악 파일을 올린 후, 원하는 구간(초)만 재생하거나 자른 음원을 확인하세요.")
+# 🎬 검색어로 유튜브 영상 즉시 탐색 및 플레이어 재생
+st.subheader("▶️ 추천곡 검색 후 플레이어로 바로 듣기")
+search_query = st.text_input("듣고 싶은 노래 제목이나 아티스트 입력 후 엔터", placeholder="예: 뉴진스 Hype Boy")
 
+if search_query:
+    with st.spinner(f"🔍 '{search_query}' 검색 결과 영상을 찾는 중입니다..."):
+        try:
+            ydl_opts = {
+                'format': 'best',
+                'noplaylist': True,
+                'quiet': True,
+                'default_search': 'ytsearch1'
+            }
+            with YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"{search_query} BGM", download=False)
+                if 'entries' in info and len(info['entries']) > 0:
+                    video_url = info['entries'][0]['webpage_url']
+                    video_title = info['entries'][0]['title']
+                    st.success(f"🎬 재생 영상: **{video_title}**")
+                    st.video(video_url)
+                else:
+                    st.warning("⚠️ 해당 검색어에 일치하는 유튜브 영상 검색 결과를 찾지 못했습니다.")
+        except Exception as e:
+            # 자동 탐색 실패 시 대체 검색 링크 제공
+            encoded_query = urllib.parse.quote(f"{search_query} BGM")
+            youtube_search_url = f"https://www.youtube.com/results?search_query={encoded_query}"
+            st.markdown(f"👉 [▶️ 유튜브에서 '{search_query}' 직접 들어보기]({youtube_search_url})")
+
+st.divider()
+
+# ✂️ MP3/음원 소장용 오디오 플레이어
+st.subheader("✂️ 소장 중인 MP3 음원 들어보기")
 uploaded_audio = st.file_uploader("MP3 / WAV / OGG 음원 파일 업로드", type=["mp3", "wav", "ogg"])
 
 if uploaded_audio:
@@ -165,17 +194,7 @@ if uploaded_audio:
         end_sec = st.number_input("종료 시간 (초)", min_value=1, max_value=600, value=15)
 
     if start_sec < end_sec:
-        st.success(f"🎵 지정된 구간: **{start_sec}초 ~ {end_sec}초** (총 {end_sec - start_sec}초 리액션 구간)")
-        
-        # HTML5 Audio 지정 구간 재생 컨트롤러
-        st.markdown(f"""
-            <div style="background-color: #FFFFFF; padding: 15px; border-radius: 10px; border: 1px solid #CBD5E1; margin-top: 10px;">
-                <p style="margin-bottom: 8px; font-weight: bold; color: #FF6B00;">▶️ [{start_sec}초 ~ {end_sec}초] 지정 구간 미리듣기</p>
-                <audio controls style="width: 100%;">
-                    <source src="data:audio/mp3;base64,{io.BytesIO(uploaded_audio.getvalue()).read().hex()}" type="audio/mp3">
-                </audio>
-            </div>
-        """, unsafe_allow_html=True)
+        st.success(f"🎵 지정 구간: **{start_sec}초 ~ {end_sec}초** (총 {end_sec - start_sec}초 리액션 구간)")
         
         st.download_button(
             label=f"📥 원본 음원 다운로드 ({uploaded_audio.name})",
@@ -184,11 +203,3 @@ if uploaded_audio:
             mime="audio/mp3",
             use_container_width=True
         )
-
-st.divider()
-st.subheader("🔍 유튜브 추천 음원 검색 바로가기")
-search_keyword = st.text_input("검색할 노래 제목이나 아티스트 입력", placeholder="예: 뉴진스 Hype Boy")
-if search_keyword:
-    encoded_query = urllib.parse.quote(f"{search_keyword} BGM")
-    youtube_url = f"https://www.youtube.com/results?search_query={encoded_query}"
-    st.markdown(f"👉 [▶️ 유튜브에서 '{search_keyword}' 검색해서 들어보기]({youtube_url})")
