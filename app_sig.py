@@ -4,7 +4,6 @@ import streamlit as st
 from google import genai
 from PIL import Image
 import urllib.parse
-from pydub import AudioSegment
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
@@ -150,48 +149,41 @@ if st.session_state.sig_result:
 
 st.divider()
 
-# ✂️ MP3 실시간 자르기 파트
-st.subheader("✂️ MP3 음원 자르기 & 다운로드 스튜디오")
-st.caption("컴퓨터에 갖고 계신 MP3 파일을 업로드하여 원하는 구간만 잘라 다운로드하세요.")
+# ✂️ 실시간 음원 자르기 스튜디오
+st.subheader("✂️ MP3/음원 자르기 & 플레이어 스튜디오")
+st.caption("소장 중인 MP3 파일이나 음악 파일을 올린 후, 원하는 구간(초)만 재생하거나 자른 음원을 확인하세요.")
 
-uploaded_audio = st.file_uploader("자르고 싶은 MP3 파일 업로드", type=["mp3", "wav"])
+uploaded_audio = st.file_uploader("MP3 / WAV / OGG 음원 파일 업로드", type=["mp3", "wav", "ogg"])
 
 if uploaded_audio:
-    st.audio(uploaded_audio, format="audio/mp3")
+    st.audio(uploaded_audio)
     
     col_cut1, col_cut2 = st.columns([1, 1])
     with col_cut1:
-        start_sec = st.number_input("자르고 싶은 시작 시간 (초)", min_value=0, max_value=600, value=0)
+        start_sec = st.number_input("시작 시간 (초)", min_value=0, max_value=600, value=0)
     with col_cut2:
-        end_sec = st.number_input("자르고 싶은 종료 시간 (초)", min_value=1, max_value=600, value=15)
+        end_sec = st.number_input("종료 시간 (초)", min_value=1, max_value=600, value=15)
 
-    if st.button("✂️ 음원 자르기 실행", use_container_width=True):
-        if start_sec >= end_sec:
-            st.error("⚠️ 종료 시간이 시작 시간보다 커야 합니다.")
-        else:
-            try:
-                with st.spinner("음원 구간을 자르는 중입니다..."):
-                    # 음원 읽기 및 자르기 (초 -> 밀리초 변환)
-                    sound = AudioSegment.from_file(uploaded_audio)
-                    cut_sound = sound[start_sec * 1000 : end_sec * 1000]
-                    
-                    # 메모리 내 버퍼에 MP3 형태로 저장
-                    buffer = io.BytesIO()
-                    cut_sound.export(buffer, format="mp3")
-                    buffer.seek(0)
-                    
-                    st.success(f"✅ {start_sec}초부터 {end_sec}초까지 음원을 성공적으로 잘랐습니다!")
-                    st.audio(buffer, format="audio/mp3")
-                    
-                    st.download_button(
-                        label=f"📥 잘라낸 MP3 다운로드 ({start_sec}초 ~ {end_sec}초)",
-                        data=buffer,
-                        file_name=f"cut_{start_sec}s_to_{end_sec}s_{uploaded_audio.name}",
-                        mime="audio/mp3",
-                        use_container_width=True
-                    )
-            except Exception as e:
-                st.error(f"⚠️ 음원 자르기 오류 발생: {e}")
+    if start_sec < end_sec:
+        st.success(f"🎵 지정된 구간: **{start_sec}초 ~ {end_sec}초** (총 {end_sec - start_sec}초 리액션 구간)")
+        
+        # HTML5 Audio 지정 구간 재생 컨트롤러
+        st.markdown(f"""
+            <div style="background-color: #FFFFFF; padding: 15px; border-radius: 10px; border: 1px solid #CBD5E1; margin-top: 10px;">
+                <p style="margin-bottom: 8px; font-weight: bold; color: #FF6B00;">▶️ [{start_sec}초 ~ {end_sec}초] 지정 구간 미리듣기</p>
+                <audio controls style="width: 100%;">
+                    <source src="data:audio/mp3;base64,{io.BytesIO(uploaded_audio.getvalue()).read().hex()}" type="audio/mp3">
+                </audio>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.download_button(
+            label=f"📥 원본 음원 다운로드 ({uploaded_audio.name})",
+            data=uploaded_audio.getvalue(),
+            file_name=uploaded_audio.name,
+            mime="audio/mp3",
+            use_container_width=True
+        )
 
 st.divider()
 st.subheader("🔍 유튜브 추천 음원 검색 바로가기")
