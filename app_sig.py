@@ -9,15 +9,20 @@ import re
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
+# 경고/안내 박스 내부 다크 글자색 고정 CSS
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
         background-color: #F8FAFC !important;
-        color: #1E293B !important;
+        color: #0F172A !important;
     }
     [data-testid="stSidebar"] {
         background-color: #F1F5F9 !important;
         border-right: 1px solid #E2E8F0 !important;
+    }
+    div[data-testid="stAlert"] * {
+        color: #0F172A !important;
+        font-weight: 600 !important;
     }
     .main-title {
         color: #FF6B00 !important;
@@ -27,7 +32,7 @@ st.markdown("""
         margin-bottom: 0px !important;
     }
     .sub-title {
-        color: #64748B !important;
+        color: #475569 !important;
         text-align: center !important;
         font-size: 1.0rem !important;
         margin-bottom: 25px !important;
@@ -129,7 +134,6 @@ if btn_analyze:
                    (5번 곡까지 동일 형식)
                 """
                 
-                # 최신 전용 모델 gemini-3.6-flash 사용
                 response = client.models.generate_content(
                     model='gemini-3.6-flash',
                     contents=[prompt, image_data]
@@ -152,29 +156,28 @@ if btn_analyze:
                 else:
                     st.error(f"⚠️ 분석 오류 발생: {e}")
 
-# 리포트 및 유튜브 플레이어 연동
+# 리포트 및 연동 플레이어
 if st.session_state.sig_result:
     st.divider()
     st.markdown("### 📊 AI 시그니처 음악 분석 리포트")
     st.markdown(st.session_state.sig_result)
     
     st.divider()
-    st.subheader("🎬 추천곡 유튜브 현장 플레이어")
+    st.subheader("🎬 추천곡 바로 듣기 & 화면 재생 센터")
     
     if st.session_state.songs_list:
         for idx, song_title in enumerate(st.session_state.songs_list):
             st.markdown(f"#### 🎵 {idx+1}. {song_title}")
             encoded_query = urllib.parse.quote(f"{song_title} Official Audio")
+            youtube_url = f"https://www.youtube.com/results?search_query={encoded_query}"
             
-            html_player = f"""
-            <iframe width="100%" height="280" 
-                src="https://www.youtube-nocookie.com/embed?listType=search&list={encoded_query}" 
-                frameborder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowfullscreen>
-            </iframe>
-            """
-            st.components.v1.html(html_player, height=290)
+            col_play1, col_play2 = st.columns([1, 2])
+            with col_play1:
+                st.markdown(f"👉 **[▶️ 유튜브에서 즉시 감상하기]({youtube_url})**")
+            with col_play2:
+                user_yt_url = st.text_input(f"영상 URL 복사 후 입력 시 이 화면에서 플레이어 재생", key=f"yt_url_{idx}", placeholder="https://www.youtube.com/watch?v=...")
+                if user_yt_url:
+                    st.video(user_yt_url)
             st.divider()
 
 st.divider()
