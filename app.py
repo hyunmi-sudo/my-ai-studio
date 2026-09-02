@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -6,45 +7,112 @@ import yt_dlp
 import pandas as pd
 from PIL import Image
 
-# Streamlit 페이지 설정
 st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide")
 
-# 세션 상태(이전 기록 보관함) 초기화
-if "master_prompts" not in st.session_state:
-    st.session_state.master_prompts = []
-if "saved_prompt_result" not in st.session_state:
-    st.session_state.saved_prompt_result = None
-if "saved_plan_result" not in st.session_state:
-    st.session_state.saved_plan_result = None
+# Secrets에서 API 키 자동 로드
+saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+
+# 💾 전 카테고리 저장소 초기화 (제목 + 내용 구조)
+if "saved_items" not in st.session_state:
+    st.session_state.saved_items = {
+        "prompts": [],     # 🎬 영상 프롬프트
+        "plans": [],       # 📄 촬영 기획서
+        "yt_diag": [],     # 🎥 유튜브 성과 진단
+        "img_analysis": [],# 📸 이미지 시각 분석
+        "influencer": [],  # 👥 인플루언서 매칭
+        "calendar": []     # 📅 30일 콘텐츠 달력
+    }
+
+# 생성 결과 세션 보관
+if "saved_prompt_result" not in st.session_state: st.session_state.saved_prompt_result = None
+if "saved_plan_result" not in st.session_state: st.session_state.saved_plan_result = None
+if "saved_yt_result" not in st.session_state: st.session_state.saved_yt_result = None
+if "saved_img_result" not in st.session_state: st.session_state.saved_img_result = None
+if "saved_inf_result" not in st.session_state: st.session_state.saved_inf_result = None
+if "saved_cal_result" not in st.session_state: st.session_state.saved_cal_result = None
 
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
-st.caption("영상 제작용 AI 프롬프트 생성과 상세 영상 촬영계획서 작성을 독립된 구획에서 따로 진행할 수 있습니다.")
+st.caption("결과물 확인 후 원하는 제목을 지정하여 카테고리별 저장소에 보관할 수 있습니다.")
 st.divider()
 
-# 사이드바 API 설정 & 마스터 프롬프트 보관함
+# 사이드바 API 설정 & 카테고리별 보관함
 with st.sidebar:
     st.header("🔑 API 설정")
-    gemini_key = st.text_input("1️⃣ Google Gemini API Key", type="password")
+    gemini_key = st.text_input("1️⃣ Google Gemini API Key", value=saved_gemini_key, type="password")
     st.caption("[Google AI Studio](https://aistudio.google.com/) 무료 발급")
     st.divider()
     claude_key = st.text_input("2️⃣ Anthropic Claude API Key (선택)", type="password")
     
     st.divider()
-    st.header("📂 마스터 프롬프트 보관함")
-    if st.session_state.master_prompts:
-        for idx, item in enumerate(st.session_state.master_prompts, start=1):
-            with st.expander(f"📌 [{item['title']}] 템플릿"):
-                st.code(item['prompt'], language="markdown")
-                st.download_button("💾 텍스트 다운로드", item['prompt'], file_name=f"Prompt_{idx}.txt", key=f"dl_{idx}")
-    else:
-        st.info("저장된 프롬프트가 없습니다.")
+    st.header("📂 카테고리별 보관함")
+    
+    # 1. 프롬프트 보관함
+    with st.expander("🎬 영상 프롬프트 보관함", expanded=False):
+        if st.session_state.saved_items["prompts"]:
+            for idx, item in enumerate(st.session_state.saved_items["prompts"], 1):
+                st.markdown(f"**📌 {item['title']}**")
+                st.code(item['content'], language="markdown")
+                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_p_{idx}")
+                st.markdown("---")
+        else: st.caption("저장된 프롬프트가 없습니다.")
+
+    # 2. 기획서 보관함
+    with st.expander("📄 촬영 기획서 보관함", expanded=False):
+        if st.session_state.saved_items["plans"]:
+            for idx, item in enumerate(st.session_state.saved_items["plans"], 1):
+                st.markdown(f"**📌 {item['title']}**")
+                st.code(item['content'], language="markdown")
+                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.md", key=f"dl_pl_{idx}")
+                st.markdown("---")
+        else: st.caption("저장된 기획서가 없습니다.")
+
+    # 3. 유튜브 성과 진단 보관함
+    with st.expander("🎥 유튜브 진단 보관함", expanded=False):
+        if st.session_state.saved_items["yt_diag"]:
+            for idx, item in enumerate(st.session_state.saved_items["yt_diag"], 1):
+                st.markdown(f"**📌 {item['title']}**")
+                st.code(item['content'], language="markdown")
+                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_yt_{idx}")
+                st.markdown("---")
+        else: st.caption("저장된 진단 리포트가 없습니다.")
+
+    # 4. 이미지 분석 보관함
+    with st.expander("📸 이미지 분석 보관함", expanded=False):
+        if st.session_state.saved_items["img_analysis"]:
+            for idx, item in enumerate(st.session_state.saved_items["img_analysis"], 1):
+                st.markdown(f"**📌 {item['title']}**")
+                st.code(item['content'], language="markdown")
+                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_img_{idx}")
+                st.markdown("---")
+        else: st.caption("저장된 분석 결과가 없습니다.")
+
+    # 5. 인플루언서 매칭 보관함
+    with st.expander("👥 인플루언서 매칭 보관함", expanded=False):
+        if st.session_state.saved_items["influencer"]:
+            for idx, item in enumerate(st.session_state.saved_items["influencer"], 1):
+                st.markdown(f"**📌 {item['title']}**")
+                st.code(item['content'], language="markdown")
+                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_inf_{idx}")
+                st.markdown("---")
+        else: st.caption("저장된 매칭 가이드가 없습니다.")
+
+    # 6. 콘텐츠 달력 보관함
+    with st.expander("📅 30일 달력 보관함", expanded=False):
+        if st.session_state.saved_items["calendar"]:
+            for idx, item in enumerate(st.session_state.saved_items["calendar"], 1):
+                st.markdown(f"**📌 {item['title']}**")
+                st.code(item['content'], language="markdown")
+                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_cal_{idx}")
+                st.markdown("---")
+        else: st.caption("저장된 달력이 없습니다.")
 
 def get_gemini_client():
-    if not gemini_key or not gemini_key.strip():
+    key_to_use = gemini_key.strip() if gemini_key else ""
+    if not key_to_use:
         st.warning("왼쪽 사이드바에 Google Gemini API Key를 입력해 주세요.")
         return None
     try:
-        return genai.Client(api_key=gemini_key.strip())
+        return genai.Client(api_key=key_to_use)
     except Exception as e:
         st.error(f"Gemini 클라이언트 초기화 실패: {e}")
         return None
@@ -52,17 +120,13 @@ def get_gemini_client():
 def safe_gemini_generate(client, contents_input):
     try:
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-2.5-flash',
             contents=contents_input
         )
         if response and response.text:
             return response.text
     except Exception as e:
-        err_msg = str(e)
-        if "INVALID_ARGUMENT" in err_msg or "API_KEY_INVALID" in err_msg:
-            st.error("❌ 입력하신 Gemini API Key가 유효하지 않습니다. 키를 다시 확인해 주세요.")
-        else:
-            st.error(f"⚠️ API 생성 오류: {err_msg}")
+        st.error(f"⚠️ API 생성 오류: {e}")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -77,7 +141,6 @@ def generate_claude_or_gemini(prompt, gemini_client):
             return message.content[0].text
         except Exception:
             st.info("Claude 연결 제외로 Gemini로 전환하여 처리합니다.")
-    
     if gemini_client:
         return safe_gemini_generate(gemini_client, prompt)
     return None
@@ -100,11 +163,10 @@ def get_youtube_info(url):
             'channel': info.get('uploader') or 'N/A'
         }
 
-# 메인 작업 탭 분리
 main_tab1, main_tab2, main_tab3 = st.tabs([
     "🎬 1. 영상 제작 전용 AI 프롬프트 생성기", 
     "📄 2. 영상 종합 기획서 & 촬영계획서 작성기",
-    "🛠️ 3. 확장 마케팅 스튜디오 (성과진단 / 이미지 / 인플루언서 / 달력)"
+    "🛠️ 3. 확장 마케팅 스튜디오"
 ])
 
 # ==========================================
@@ -112,191 +174,195 @@ main_tab1, main_tab2, main_tab3 = st.tabs([
 # ==========================================
 with main_tab1:
     st.markdown("### 🎬 영상 제작용 AI 프롬프트 독립 생성")
-    st.caption("AI 대본 작성기나 영상 생성 AI(Sora, Runway 등)에 입력할 최적의 프롬프트를 만듭니다.")
-    
     col_p1, col_p2 = st.columns([1, 1])
     with col_p1:
         p_topic = st.text_input("영상 주제 / 제품명", placeholder="예: 민트볼 틴케이스 숏폼 홍보 영상", key="p_topic")
         p_style = st.selectbox("영상 포맷", ["유튜브 숏폼/릴스/틱톡 (15~60초)", "유튜브 롱폼 (5~10분)", "브랜드 홍보 CF", "제품 언박싱/리뷰"], key="p_style")
     with col_p2:
-        p_tone = st.text_input("원하는 톤앤매너 & 감성", placeholder="예: 트렌디함, B급 유머, 감성적인, 미니멀한", key="p_tone")
-        p_detail = st.text_area("프롬프트에 꼭 포함할 핵심 메시지", placeholder="예: 휴대성이 좋다는 점과 민트의 상쾌함을 강조해줘", height=100, key="p_detail")
+        p_tone = st.text_input("원하는 톤앤매너 & 감성", placeholder="예: 트렌디함, B급 유머, 감성적인", key="p_tone")
+        p_detail = st.text_area("핵심 메시지", placeholder="예: 휴대성과 상쾌함 강조", height=100, key="p_detail")
 
-    btn_gen_prompt = st.button("🚀 영상 제작용 프롬프트 생성 실행", type="primary", use_container_width=True)
-
-    if btn_gen_prompt:
+    if st.button("🚀 영상 제작용 프롬프트 생성 실행", type="primary", use_container_width=True):
         gemini_client = get_gemini_client()
-        if not p_topic or not p_detail:
-            st.error("주제와 핵심 메시지를 입력해 주세요.")
-        elif gemini_client:
-            with st.spinner("영상 제작용 맞춤 & 마스터 프롬프트 생성 중..."):
-                prompt_req = f"""
-                당신은 수석 영상 프롬프트 엔지니어입니다. 아래 조건을 바탕으로 영상 제작에 쓸 2가지 프롬프트를 작성하세요.
-
-                [입력 조건]
-                - 주제/제품: {p_topic}
-                - 포맷: {p_style}
-                - 톤앤매너: {p_tone}
-                - 핵심 메시지: {p_detail}
-
-                [출력 양식]:
-                1. 🎬 **영상 생성 & 대본 작성용 [맞춤 실행 프롬프트]**
-                   - 역할 부여(Role)
-                   - 상세 지시사항(Task)
-                   - 톤앤매너 및 연출 가이드라인
-                   - 완성된 대본/콘티 요청 마스터 명령문
-
-                2. 👑 **다른 영상 제작 시 재사용 가능한 [마스터 프롬프트 템플릿]**
-                   - [제품명], [포맷], [톤앤매너] 슬롯만 바꾸면 바로 재사용 가능한 범용 프레임워크
-                """
-                res_prompt = generate_claude_or_gemini(prompt_req, gemini_client)
-                if res_prompt:
-                    st.session_state.saved_prompt_result = res_prompt
-                    st.session_state.master_prompts.append({"title": f"{p_topic[:12]} 프롬프트", "prompt": res_prompt})
+        if p_topic and p_detail and gemini_client:
+            with st.spinner("프롬프트 생성 중..."):
+                prompt_req = f"주제: {p_topic}, 포맷: {p_style}, 톤: {p_tone}, 내용: {p_detail} 바탕으로 전문 프롬프트를 작성하세요."
+                res = generate_claude_or_gemini(prompt_req, gemini_client)
+                if res:
+                    st.session_state.saved_prompt_result = res
 
     if st.session_state.saved_prompt_result:
         st.divider()
         st.markdown("#### 📌 생성된 영상 제작용 프롬프트 결과")
         st.info(st.session_state.saved_prompt_result)
-        st.download_button("💾 프롬프트 텍스트 파일 다운로드", data=st.session_state.saved_prompt_result, file_name="Video_Prompt.txt")
+        
+        save_p_title = st.text_input("저장할 제목 입력", value=f"{p_topic} 프롬프트", key="save_p_title")
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            if st.button("💾 영상 프롬프트 보관함에 저장", use_container_width=True):
+                st.session_state.saved_items["prompts"].append({
+                    "title": save_p_title.strip() if save_p_title.strip() else "제목 없음",
+                    "content": st.session_state.saved_prompt_result
+                })
+                st.success("✅ '영상 프롬프트 보관함'에 저장되었습니다!")
+        with col_btn2:
+            st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_prompt_result, file_name="Prompt.txt", use_container_width=True)
 
 # ==========================================
 # 📄 TAB 2: 영상 기획서 & 촬영계획서 작성기
 # ==========================================
 with main_tab2:
     st.markdown("### 📄 영상 종합 기획서 & 촬영계획서 작성")
-    st.caption("실제 현장 촬영 및 현장 감독용 상세 촬영계획서와 타임라인 콘티를 생성합니다.")
-
     col_g1, col_g2 = st.columns([1, 1])
     with col_g1:
-        g_title = st.text_input("기획 프로젝트명", placeholder="예: 민트볼 틴케이스 와디즈 펀딩 영상", key="g_title")
-        g_target = st.text_input("타겟 시청자층", placeholder="예: 2030 직장인 및 자취생", key="g_target")
+        g_title = st.text_input("기획 프로젝트명", placeholder="예: 민트볼 틴케이스", key="g_title")
+        g_target = st.text_input("타겟 시청자층", placeholder="예: 2030대", key="g_target")
     with col_g2:
-        g_location = st.text_input("촬영 장소 / 로케이션 구상", placeholder="예: 채광 좋은 미니멀 카페, 야외 공원, 자취방", key="g_location")
-        g_goal = st.text_area("영상 제작 목적 및 세부 내용", placeholder="예: 제품 펀딩 전환율 상승, 브랜드 인지도 확보", height=100, key="g_goal")
+        g_location = st.text_input("촬영 장소", placeholder="예: 카페, 야외 공원", key="g_location")
+        g_goal = st.text_area("제작 목적 및 세부 내용", placeholder="내용 입력", height=100, key="g_goal")
 
-    btn_gen_plan = st.button("📄 영상 기획서 & 촬영계획서 생성 실행", type="primary", use_container_width=True)
-
-    if btn_gen_plan:
+    if st.button("📄 영상 기획서 & 촬영계획서 생성 실행", type="primary", use_container_width=True):
         gemini_client = get_gemini_client()
-        if not g_title or not g_goal:
-            st.error("프로젝트명과 세부 내용을 입력해 주세요.")
-        elif gemini_client:
-            with st.spinner("영상 기획서 및 씬별 촬영계획서 작성 중..."):
-                plan_req = f"""
-                당신은 전문 영상 감독 및 마케팅 디렉터입니다. 아래 내용을 바탕으로 전문적인 영상 종합 기획서 및 촬영계획서를 작성하세요.
-
-                [기획 정보]
-                - 프로젝트명: {g_title}
-                - 타겟: {g_target}
-                - 촬영 로케이션: {g_location}
-                - 제작 목적/내용: {g_goal}
-
-                [출력 목차]:
-                1. 🎯 **영상 핵심 기획안**
-                   - 기획 의도 및 핵심 메시지 (Hook point)
-                   - 톤앤매너 & 비주얼 컨셉
-
-                2. 🎬 **씬(Scene)별 상세 촬영계획서 (타임라인 콘티)**
-                   - 표 포맷 (Scene 번호 | 연출 내용/화면 구도 | 오디오/대사 | 촬영 구도 및 카메라 워크 | 비고)
-
-                3. 🛠️ **촬영 현장 체크리스트**
-                   - 준비물 / 소품 리스트
-                   - 추천 장비 (조명, 프레임, 렌즈 감성)
-                   - 편집 및 BGM/사운드 연출 방향
-                """
-                res_plan = safe_gemini_generate(gemini_client, plan_req)
-                if res_plan:
-                    st.session_state.saved_plan_result = res_plan
+        if g_title and g_goal and gemini_client:
+            with st.spinner("촬영계획서 작성 중..."):
+                plan_req = f"프로젝트명: {g_title}, 타겟: {g_target}, 장소: {g_location}, 내용: {g_goal} 바탕으로 촬영계획서를 작성하세요."
+                res_pl = safe_gemini_generate(gemini_client, plan_req)
+                if res_pl:
+                    st.session_state.saved_plan_result = res_pl
 
     if st.session_state.saved_plan_result:
         st.divider()
         st.markdown("#### 📄 생성된 영상 종합 기획서 & 촬영계획서")
         st.success(st.session_state.saved_plan_result)
-        st.download_button("📥 촬영계획서 마크다운(.md) 다운로드", data=st.session_state.saved_plan_result, file_name="Shooting_Plan.md", use_container_width=True)
+        
+        save_pl_title = st.text_input("저장할 제목 입력", value=f"{g_title} 촬영기획서", key="save_pl_title")
+        col_pbtn1, col_pbtn2 = st.columns([1, 1])
+        with col_pbtn1:
+            if st.button("💾 촬영 기획서 보관함에 저장", use_container_width=True):
+                st.session_state.saved_items["plans"].append({
+                    "title": save_pl_title.strip() if save_pl_title.strip() else "제목 없음",
+                    "content": st.session_state.saved_plan_result
+                })
+                st.success("✅ '촬영 기획서 보관함'에 저장되었습니다!")
+        with col_pbtn2:
+            st.download_button("📥 마크다운 다운로드", data=st.session_state.saved_plan_result, file_name="Plan.md", use_container_width=True)
 
 # ==========================================
 # 🛠️ TAB 3: 확장 마케팅 스튜디오
 # ==========================================
 with main_tab3:
     st.markdown("### 🛠️ 확장 마케팅 스튜디오")
-    tab_yt_standalone, tab_img, tab_inf, tab_plan = st.tabs([
-        "🎥 내 유튜브 영상 성과 진단 (단독)", "📸 제품 사진 기반 AI 이미지 분석", "👥 키워드 기반 인플루언서 탐색", "📅 30일 콘텐츠 달력"
+    tab_yt_std, tab_img, tab_inf, tab_plan = st.tabs([
+        "🎥 내 유튜브 영상 성과 진단", "📸 제품 사진 기반 AI 이미지 분석", "👥 키워드 기반 인플루언서 탐색", "📅 30일 콘텐츠 달력"
     ])
 
-    with tab_yt_standalone:
-        st.write("유튜브 영상 URL을 입력하시면 지표 수집 및 AI 진단 리포트를 생성해 드립니다.")
+    # 1. 유튜브 성과 진단
+    with tab_yt_std:
         standalone_urls = st.text_area("유튜브 URL 목록 (한 줄에 하나씩)", height=100)
         if st.button("📊 영상 성과 진단 실행", use_container_width=True):
             gemini_client = get_gemini_client()
             if gemini_client and standalone_urls.strip():
-                url_list_std = [u.strip() for u in standalone_urls.strip().split('\n') if u.strip()]
-                with st.spinner(f"총 {len(url_list_std)}개 영상 데이터 분석 중..."):
-                    fetched_std = []
-                    for idx, url in enumerate(url_list_std, start=1):
+                url_list = [u.strip() for u in standalone_urls.strip().split('\n') if u.strip()]
+                with st.spinner("유튜브 데이터 분석 중..."):
+                    fetched = []
+                    for idx, url in enumerate(url_list, start=1):
                         try:
                             info = get_youtube_info(url)
                             info['id'] = f"영상 {idx}"
-                            fetched_std.append(info)
-                        except Exception as e:
-                            st.warning(f"URL 수집 불가 ({url}): {e}")
+                            fetched.append(info)
+                        except Exception as e: pass
                     
-                    if fetched_std:
-                        card_cols_std = st.columns(len(fetched_std))
-                        for i, data in enumerate(fetched_std):
-                            with card_cols_std[i]:
-                                st.metric(label=f"[{data['id']}] {data['title'][:12]}...", value=f"{data['views']:,} 회", delta=f"👍 {data['likes']:,} | 💬 {data['comments']:,}")
-                        st.dataframe(pd.DataFrame(fetched_std)[['id', 'title', 'views', 'likes', 'comments', 'channel']], use_container_width=True)
-                        v_summary = "".join([f"\n- [{d['id']}] 제목:{d['title']} / 조회수:{d['views']} / 좋아요:{d['likes']} / 댓글:{d['comments']}" for d in fetched_std])
-                        res_std_text = safe_gemini_generate(gemini_client, f"유튜브 데이터 분석가로서 다음 데이터 분석 및 해법을 제시하세요: {v_summary}")
-                        if res_std_text:
-                            st.warning(res_std_text)
+                    if fetched:
+                        v_summary = "".join([f"\n- [{d['id']}] 제목:{d['title']} / 조회수:{d['views']} / 좋아요:{d['likes']}" for d in fetched])
+                        res_yt = safe_gemini_generate(gemini_client, f"다음 유튜브 데이터 분석 및 해법을 작성하세요: {v_summary}")
+                        if res_yt:
+                            st.session_state.saved_yt_result = res_yt
 
+        if st.session_state.saved_yt_result:
+            st.divider()
+            st.warning(st.session_state.saved_yt_result)
+            save_yt_title = st.text_input("저장할 제목 입력", value="유튜브 성과 진단 리포트", key="save_yt_title")
+            if st.button("💾 유튜브 진단 보관함에 저장", use_container_width=True):
+                st.session_state.saved_items["yt_diag"].append({
+                    "title": save_yt_title.strip() if save_yt_title.strip() else "제목 없음",
+                    "content": st.session_state.saved_yt_result
+                })
+                st.success("✅ '유튜브 진단 보관함'에 저장되었습니다!")
+
+    # 2. 이미지 분석
     with tab_img:
         col_img1, col_img2 = st.columns([1, 1])
         with col_img1:
-            uploaded_file = st.file_uploader("1. 제품 사진 업로드", type=["png", "jpg", "jpeg"])
+            uploaded_file = st.file_uploader("제품 사진 업로드", type=["png", "jpg", "jpeg"])
             if uploaded_file:
                 input_image = Image.open(uploaded_file)
-                st.image(input_image, caption="업로드한 제품 원본", width=250)
+                st.image(input_image, caption="업로드 원본", width=250)
         with col_img2:
-            img_style_prompt = st.text_area("2. 연출 분위기 작성", height=100)
+            img_style_prompt = st.text_area("연출 분위기 작성", height=100)
             btn_gen_img = st.button("🖼️ 연출 이미지 특징 분석", use_container_width=True)
 
         if btn_gen_img:
             gemini_client = get_gemini_client()
             if gemini_client and uploaded_file:
-                with st.spinner("이미지 시각적 특성 분석 중..."):
-                    product_features = safe_gemini_generate(gemini_client, ["Describe key visual characteristics of this product image in detail.", input_image])
-                    if product_features:
-                        st.info(f"**제품 시각적 특징 분석 완료:**\n{product_features}")
+                with st.spinner("이미지 특성 분석 중..."):
+                    res_img = safe_gemini_generate(gemini_client, ["Describe key visual characteristics of this product image.", input_image])
+                    if res_img:
+                        st.session_state.saved_img_result = res_img
 
+        if st.session_state.saved_img_result:
+            st.divider()
+            st.info(st.session_state.saved_img_result)
+            save_img_title = st.text_input("저장할 제목 입력", value="제품 이미지 시각 분석", key="save_img_title")
+            if st.button("💾 이미지 분석 보관함에 저장", use_container_width=True):
+                st.session_state.saved_items["img_analysis"].append({
+                    "title": save_img_title.strip() if save_img_title.strip() else "제목 없음",
+                    "content": st.session_state.saved_img_result
+                })
+                st.success("✅ '이미지 분석 보관함'에 저장되었습니다!")
+
+    # 3. 인플루언서 탐색
     with tab_inf:
-        col_inf1, col_inf2, col_inf3 = st.columns([2, 1, 1])
+        col_inf1, col_inf2 = st.columns([2, 1])
         with col_inf1:
             inf_keyword = st.text_input("타겟 키워드", placeholder="예: 친환경")
         with col_inf2:
-            inf_platform = st.selectbox("플랫폼", ["유튜브 (YouTube)", "인스타그램 (Instagram)", "틱톡 (TikTok)", "블로그"])
-        with col_inf3:
-            st.write("")
-            btn_gen_inf = st.button("👥 인플루언서 매칭", use_container_width=True)
-
-        if btn_gen_inf:
+            inf_platform = st.selectbox("플랫폼", ["유튜브", "인스타그램", "틱톡", "블로그"])
+        
+        if st.button("👥 인플루언서 매칭 실행", use_container_width=True):
             gemini_client = get_gemini_client()
             if gemini_client and inf_keyword:
-                res = safe_gemini_generate(gemini_client, f"인플루언서 매칭 가이드: {inf_keyword} ({inf_platform})")
-                if res: st.markdown(res)
+                res_inf = safe_gemini_generate(gemini_client, f"인플루언서 매칭 가이드: {inf_keyword} ({inf_platform})")
+                if res_inf:
+                    st.session_state.saved_inf_result = res_inf
 
+        if st.session_state.saved_inf_result:
+            st.divider()
+            st.markdown(st.session_state.saved_inf_result)
+            save_inf_title = st.text_input("저장할 제목 입력", value=f"{inf_keyword} 인플루언서 매칭", key="save_inf_title")
+            if st.button("💾 인플루언서 매칭 보관함에 저장", use_container_width=True):
+                st.session_state.saved_items["influencer"].append({
+                    "title": save_inf_title.strip() if save_inf_title.strip() else "제목 없음",
+                    "content": st.session_state.saved_inf_result
+                })
+                st.success("✅ '인플루언서 매칭 보관함'에 저장되었습니다!")
+
+    # 4. 30일 달력
     with tab_plan:
-        col_p1, col_p2 = st.columns([3, 1])
-        with col_p1:
-            plan_cal_topic = st.text_input("실행 주제 및 목표", placeholder="예: 신제품 펀딩")
-        with col_p2:
-            st.write("")
-            btn_gen_plan = st.button("📅 30일 달력 & 카피 추출", use_container_width=True)
-
-        if btn_gen_plan:
+        plan_cal_topic = st.text_input("실행 주제 및 목표", placeholder="예: 신제품 펀딩")
+        if st.button("📅 30일 달력 & 카피 추출", use_container_width=True):
             gemini_client = get_gemini_client()
             if gemini_client and plan_cal_topic:
-                res = safe_gemini_generate(gemini_client, f"30일 콘텐츠 달력 및 카피 작성: {plan_cal_topic}")
-                if res: st.markdown(res)
+                res_cal = safe_gemini_generate(gemini_client, f"30일 콘텐츠 달력 및 카피 작성: {plan_cal_topic}")
+                if res_cal:
+                    st.session_state.saved_cal_result = res_cal
+
+        if st.session_state.saved_cal_result:
+            st.divider()
+            st.markdown(st.session_state.saved_cal_result)
+            save_cal_title = st.text_input("저장할 제목 입력", value=f"{plan_cal_topic} 30일 콘텐츠 달력", key="save_cal_title")
+            if st.button("💾 30일 달력 보관함에 저장", use_container_width=True):
+                st.session_state.saved_items["calendar"].append({
+                    "title": save_cal_title.strip() if save_cal_title.strip() else "제목 없음",
+                    "content": st.session_state.saved_cal_result
+                })
+                st.success("✅ '30일 달력 보관함'에 저장되었습니다!")
