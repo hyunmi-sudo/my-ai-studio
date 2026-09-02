@@ -8,7 +8,6 @@ import re
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
-# 화사하고 깔끔한 라이트 테마 CSS
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -130,9 +129,6 @@ if btn_analyze:
                    - 추천 이유 & 매칭 포인트: ...
 
                    (5번 곡까지 동일 형식)
-
-                3. 🎼 **AI 음악 생성용 영문 프롬프트 (Suno / Udio 용)**
-                   - Style of Music 영문 프롬프트
                 """
                 
                 try:
@@ -149,7 +145,7 @@ if btn_analyze:
                 if response and response.text:
                     st.session_state.sig_result = response.text
                     
-                    # 추천된 노래 제목 추출
+                    # 추천 곡명 추출
                     extracted_songs = re.findall(r'[①②③④⑤12345][.\s\)]*([^\n\r-]+-[^\n\r]+)', response.text)
                     if not extracted_songs:
                         extracted_songs = re.findall(r'(\w+[\s\w]*\s*-\s*[\w\s♡%()]+)', response.text)
@@ -157,34 +153,32 @@ if btn_analyze:
             except Exception as e:
                 st.error(f"⚠️ 분석 오류 발생: {e}")
 
-# 리포트 및 바로듣기 출력
+# 리포트 및 유튜브 플레이어 화면 직접 내장
 if st.session_state.sig_result:
     st.divider()
     st.markdown("### 📊 AI 시그니처 음악 분석 리포트")
     st.markdown(st.session_state.sig_result)
     
     st.divider()
-    st.subheader("🎧 추천곡 현장에서 즉시 바로 듣기 (유튜브)")
-    st.caption("AI가 추천해 준 노래를 그 자리에서 들어보세요!")
+    st.subheader("🎬 추천곡 유튜브 영상 화면 바로 재생")
+    st.caption("외부 이동 없이 화면에서 영상 플레이어로 바로 들어보실 수 있습니다!")
     
-    # 추천곡 바로듣기 플레이어 섹션
+    # 추출된 노래 목록을 화면상에 동영상 플레이어(iframe) 형태로 내장
     if st.session_state.songs_list:
         for idx, song_title in enumerate(st.session_state.songs_list):
-            with st.expander(f"▶️ [{idx+1}번 추천곡] {song_title} 들어보기", expanded=(idx==0)):
-                encoded_q = urllib.parse.quote(f"{song_title} BGM")
-                yt_link = f"https://www.youtube.com/results?search_query={encoded_q}"
-                
-                st.markdown(f"👉 **[▶️ 유튜브에서 '{song_title}' 플레이어로 들어보기]({yt_link})**")
-                
-                # 영상 바로 재생용 입력창
-                v_url = st.text_input(f"'{song_title}' 영상 URL이 있다면 여기에 바로 붙여넣어 재생", key=f"yt_in_{idx}", placeholder="https://www.youtube.com/watch?v=...")
-                if v_url:
-                    st.video(v_url)
+            st.markdown(f"#### 🎵 {idx+1}. {song_title}")
+            
+            # YouTube 검색 결과를 팝업 프레임으로 바로 렌더링
+            encoded_query = urllib.parse.quote(f"{song_title} BGM")
+            yt_embed_url = f"https://www.youtube.com/embed?listType=search&list={encoded_query}"
+            
+            st.components.v1.iframe(yt_embed_url, height=360, scrolling=False)
+            st.divider()
 
 st.divider()
 
-# ✂️ MP3/음원 소장용 오디오 플레이어
-st.subheader("✂️ 소장 중인 MP3 음원 자르기 & 들어보기")
+# ✂️ MP3/음원 자르기 플레이어
+st.subheader("✂️ 소장 중인 MP3 음원 들어보기")
 uploaded_audio = st.file_uploader("MP3 / WAV / OGG 음원 파일 업로드", type=["mp3", "wav", "ogg"])
 
 if uploaded_audio:
