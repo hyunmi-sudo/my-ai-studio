@@ -116,17 +116,14 @@ if btn_analyze:
                 1. 🎨 **시그니처 시각적 분위기 분석**
                    - 주요 색감 및 톤앤매너
                    - 캐릭터/움직임의 연출 특징
-                   - 추천 리액션 구간 (예: 0초~5초 하이라이트)
 
                 2. 🎧 **추천 BGM 및 리액션 송 (총 5곡)**
-                   아래 번호 형식을 반드시 엄격히 지켜서 출력하세요:
+                   (구간이나 타임라인 설명은 쓰지 말고, 곡명과 추천 이유만 간단히 적으세요)
                    ① 가수이름 - 노래제목
-                   - 추천 구간: 시작초 - 종료초 (가사 파트)
                    - 추천 이유 & 매칭 포인트: 설명
                    
                    ② 가수이름 - 노래제목
-                   - 추천 구간: ...
-                   - 추천 이유 & 매칭 포인트: ...
+                   - 추천 이유 & 매칭 포인트: 설명
 
                    (5번 곡까지 동일 형식)
                 """
@@ -153,32 +150,36 @@ if btn_analyze:
             except Exception as e:
                 st.error(f"⚠️ 분석 오류 발생: {e}")
 
-# 리포트 및 유튜브 플레이어 화면 직접 내장
+# 리포트 및 유튜브 플레이어 연동
 if st.session_state.sig_result:
     st.divider()
     st.markdown("### 📊 AI 시그니처 음악 분석 리포트")
     st.markdown(st.session_state.sig_result)
     
     st.divider()
-    st.subheader("🎬 추천곡 유튜브 영상 화면 바로 재생")
-    st.caption("외부 이동 없이 화면에서 영상 플레이어로 바로 들어보실 수 있습니다!")
+    st.subheader("🎬 추천곡 유튜브 현장 플레이어")
     
-    # 추출된 노래 목록을 화면상에 동영상 플레이어(iframe) 형태로 내장
     if st.session_state.songs_list:
         for idx, song_title in enumerate(st.session_state.songs_list):
             st.markdown(f"#### 🎵 {idx+1}. {song_title}")
+            encoded_query = urllib.parse.quote(f"{song_title} Official Audio")
             
-            # YouTube 검색 결과를 팝업 프레임으로 바로 렌더링
-            encoded_query = urllib.parse.quote(f"{song_title} BGM")
-            yt_embed_url = f"https://www.youtube.com/embed?listType=search&list={encoded_query}"
-            
-            st.components.v1.iframe(yt_embed_url, height=360, scrolling=False)
+            # 차단되지 않는 유튜브 앰베드 플레이어 방식 적용
+            html_player = f"""
+            <iframe width="100%" height="280" 
+                src="https://www.youtube-nocookie.com/embed?listType=search&list={encoded_query}" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+            </iframe>
+            """
+            st.components.v1.html(html_player, height=290)
             st.divider()
 
 st.divider()
 
 # ✂️ MP3/음원 자르기 플레이어
-st.subheader("✂️ 소장 중인 MP3 음원 들어보기")
+st.subheader("✂️ 소장 중인 MP3 음원 자르기 & 들어보기")
 uploaded_audio = st.file_uploader("MP3 / WAV / OGG 음원 파일 업로드", type=["mp3", "wav", "ogg"])
 
 if uploaded_audio:
