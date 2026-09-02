@@ -4,7 +4,7 @@ import streamlit as st
 from google import genai
 from PIL import Image
 import urllib.parse
-from yt_dlp import YoutubeDL
+import re
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
@@ -67,6 +67,7 @@ st.markdown("""
 saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 
 if "sig_result" not in st.session_state: st.session_state.sig_result = None
+if "songs_list" not in st.session_state: st.session_state.songs_list = []
 
 st.markdown("<p class='main-title'>🎵 아프리카TV 시그니처 BGM & 노래 추천 AI 🎶</p>", unsafe_allow_html=True)
 st.markdown("<p class='sub-title'>시그니처 이미지나 GIF 움짤을 업로드하면 Visual AI가 분위기를 분석하여 가장 잘 어울리는 BGM과 리액션 송을 추천해 드립니다.</p>", unsafe_allow_html=True)
@@ -119,9 +120,16 @@ if btn_analyze:
                    - 추천 리액션 구간 (예: 0초~5초 하이라이트)
 
                 2. 🎧 **추천 BGM 및 리액션 송 (총 5곡)**
-                   - 곡명 / 아티스트
-                   - 추천 구간 (예: 15초~30초 하이라이트 파트)
-                   - 추천 이유 및 매칭 포인트
+                   아래 번호 형식을 반드시 엄격히 지켜서 출력하세요:
+                   ① 가수이름 - 노래제목
+                   - 추천 구간: 시작초 - 종료초 (가사 파트)
+                   - 추천 이유 & 매칭 포인트: 설명
+                   
+                   ② 가수이름 - 노래제목
+                   - 추천 구간: ...
+                   - 추천 이유 & 매칭 포인트: ...
+
+                   (5번 곡까지 동일 형식)
 
                 3. 🎼 **AI 음악 생성용 영문 프롬프트 (Suno / Udio 용)**
                    - Style of Music 영문 프롬프트
@@ -140,53 +148,47 @@ if btn_analyze:
                 
                 if response and response.text:
                     st.session_state.sig_result = response.text
+                    
+                    # 추천된 노래 제목 추출
+                    extracted_songs = re.findall(r'[①②③④⑤12345][.\s\)]*([^\n\r-]+-[^\n\r]+)', response.text)
+                    if not extracted_songs:
+                        extracted_songs = re.findall(r'(\w+[\s\w]*\s*-\s*[\w\s♡%()]+)', response.text)
+                    st.session_state.songs_list = [s.strip('* ') for s in extracted_songs][:5]
             except Exception as e:
                 st.error(f"⚠️ 분석 오류 발생: {e}")
 
+# 리포트 및 바로듣기 출력
 if st.session_state.sig_result:
     st.divider()
     st.markdown("### 📊 AI 시그니처 음악 분석 리포트")
-    st.info(st.session_state.sig_result)
-
-st.divider()
-
-# 🎬 검색어로 유튜브 영상 즉시 탐색 및 플레이어 재생
-st.subheader("▶️ 추천곡 검색 후 플레이어로 바로 듣기")
-search_query = st.text_input("듣고 싶은 노래 제목이나 아티스트 입력 후 엔터", placeholder="예: 뉴진스 Hype Boy")
-
-if search_query:
-    with st.spinner(f"🔍 '{search_query}' 검색 결과 영상을 찾는 중입니다..."):
-        try:
-            ydl_opts = {
-                'format': 'best',
-                'noplaylist': True,
-                'quiet': True,
-                'default_search': 'ytsearch1'
-            }
-            with YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(f"{search_query} BGM", download=False)
-                if 'entries' in info and len(info['entries']) > 0:
-                    video_url = info['entries'][0]['webpage_url']
-                    video_title = info['entries'][0]['title']
-                    st.success(f"🎬 재생 영상: **{video_title}**")
-                    st.video(video_url)
-                else:
-                    st.warning("⚠️ 해당 검색어에 일치하는 유튜브 영상 검색 결과를 찾지 못했습니다.")
-        except Exception as e:
-            # 자동 탐색 실패 시 대체 검색 링크 제공
-            encoded_query = urllib.parse.quote(f"{search_query} BGM")
-            youtube_search_url = f"https://www.youtube.com/results?search_query={encoded_query}"
-            st.markdown(f"👉 [▶️ 유튜브에서 '{search_query}' 직접 들어보기]({youtube_search_url})")
+    st.markdown(st.session_state.sig_result)
+    
+    st.divider()
+    st.subheader("🎧 추천곡 현장에서 즉시 바로 듣기 (유튜브)")
+    st.caption("AI가 추천해 준 노래를 그 자리에서 들어보세요!")
+    
+    # 추천곡 바로듣기 플레이어 섹션
+    if st.session_state.songs_list:
+        for idx, song_title in enumerate(st.session_state.songs_list):
+            with st.expander(f"▶️ [{idx+1}번 추천곡] {song_title} 들어보기", expanded=(idx==0)):
+                encoded_q = urllib.parse.quote(f"{song_title} BGM")
+                yt_link = f"https://www.youtube.com/results?search_query={encoded_q}"
+                
+                st.markdown(f"👉 **[▶️ 유튜브에서 '{song_title}' 플레이어로 들어보기]({yt_link})**")
+                
+                # 영상 바로 재생용 입력창
+                v_url = st.text_input(f"'{song_title}' 영상 URL이 있다면 여기에 바로 붙여넣어 재생", key=f"yt_in_{idx}", placeholder="https://www.youtube.com/watch?v=...")
+                if v_url:
+                    st.video(v_url)
 
 st.divider()
 
 # ✂️ MP3/음원 소장용 오디오 플레이어
-st.subheader("✂️ 소장 중인 MP3 음원 들어보기")
+st.subheader("✂️ 소장 중인 MP3 음원 자르기 & 들어보기")
 uploaded_audio = st.file_uploader("MP3 / WAV / OGG 음원 파일 업로드", type=["mp3", "wav", "ogg"])
 
 if uploaded_audio:
     st.audio(uploaded_audio)
-    
     col_cut1, col_cut2 = st.columns([1, 1])
     with col_cut1:
         start_sec = st.number_input("시작 시간 (초)", min_value=0, max_value=600, value=0)
@@ -195,7 +197,6 @@ if uploaded_audio:
 
     if start_sec < end_sec:
         st.success(f"🎵 지정 구간: **{start_sec}초 ~ {end_sec}초** (총 {end_sec - start_sec}초 리액션 구간)")
-        
         st.download_button(
             label=f"📥 원본 음원 다운로드 ({uploaded_audio.name})",
             data=uploaded_audio.getvalue(),
