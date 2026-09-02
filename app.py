@@ -9,7 +9,7 @@ from PIL import Image
 
 st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide")
 
-# Secrets에서 Gemini API 키 백그라운드 자동 로드 (화면 노출 완전 차단)
+# Secrets에서 Gemini API 키 백그라운드 자동 로드
 saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 
 # 💾 전 카테고리 저장소 초기화
@@ -38,7 +38,6 @@ st.divider()
 # 사이드바 API 설정 & 카테고리별 보관함
 with st.sidebar:
     st.header("🔑 API 설정")
-    # Gemini Key는 Secrets로 안전하게 처리하여 UI에서 완전 숨김
     st.success("✅ Google Gemini API 연결 완료")
     
     claude_key = st.text_input("Anthropic Claude API Key (선택)", type="password")
@@ -118,8 +117,9 @@ def get_gemini_client():
 
 def safe_gemini_generate(client, contents_input):
     try:
+        # 최신 권장 모델인 gemini-3.6-flash 로 업데이트
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=contents_input
         )
         if response and response.text:
