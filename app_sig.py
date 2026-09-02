@@ -9,21 +9,33 @@ import re
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
-# 경고/안내 박스 내부 다크 글자색 고정 CSS
+# 사이드바 및 레이아웃 전체 텍스트 다크 컬러 고정 CSS
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
         background-color: #F8FAFC !important;
         color: #0F172A !important;
     }
+    
+    /* 사이드바 영역 전체 텍스트 선명하게 고정 */
     [data-testid="stSidebar"] {
         background-color: #F1F5F9 !important;
         border-right: 1px solid #E2E8F0 !important;
     }
+    [data-testid="stSidebar"] * {
+        color: #0F172A !important;
+    }
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label {
+        color: #0F172A !important;
+        font-weight: 800 !important;
+    }
+    
+    /* 경고, 에러, 안내 박스 내부 글자색 고정 */
     div[data-testid="stAlert"] * {
         color: #0F172A !important;
         font-weight: 600 !important;
     }
+
     .main-title {
         color: #FF6B00 !important;
         font-weight: 800 !important;
@@ -89,7 +101,6 @@ with st.sidebar:
         help="Secrets 키 트래픽 한도 초과 시 개인 API 키를 입력하면 바로 사용 가능합니다."
     )
     
-    # 입력한 키가 있으면 사용자가 입력한 키를 사용하고, 없으면 Secrets의 기본 키 사용
     active_api_key = user_api_key.strip() if user_api_key.strip() else default_secrets_key.strip()
     
     if active_api_key:
@@ -155,8 +166,9 @@ if btn_analyze:
                    (5번 곡까지 동일 형식)
                 """
                 
+                # 최신 지정 모델 사용
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.6-flash',
                     contents=[prompt, image_data]
                 )
                 
