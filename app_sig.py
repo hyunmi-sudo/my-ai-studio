@@ -9,6 +9,7 @@ import re
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
+# 경고/안내 박스 내부 다크 글자색 고정 CSS
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -68,7 +69,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+# 기본 Secrets 키 가져오기
+default_secrets_key = st.secrets.get("GEMINI_API_KEY", "")
 
 if "sig_result" not in st.session_state: st.session_state.sig_result = None
 if "songs_list" not in st.session_state: st.session_state.songs_list = []
@@ -76,9 +78,29 @@ if "songs_list" not in st.session_state: st.session_state.songs_list = []
 st.markdown("<p class='main-title'>🎵 아프리카TV 시그니처 BGM & 노래 추천 AI 🎶</p>", unsafe_allow_html=True)
 st.markdown("<p class='sub-title'>시그니처 이미지나 GIF 움짤을 업로드하면 Visual AI가 분위기를 분석하여 가장 잘 어울리는 BGM과 리액션 송을 추천해 드립니다.</p>", unsafe_allow_html=True)
 
+# 🔑 사이드바 API 키 설정 영역
 with st.sidebar:
-    st.header("🔑 API 연결 상태")
-    st.success("✅ Google Gemini API 연결 완료")
+    st.header("🔑 Gemini API 키 설정")
+    
+    user_api_key = st.text_input(
+        "개인 Gemini API 키 입력", 
+        type="password", 
+        placeholder="AIzaSy...",
+        help="Secrets 키 트래픽 한도 초과 시 개인 API 키를 입력하면 바로 사용 가능합니다."
+    )
+    
+    # 입력한 키가 있으면 사용자가 입력한 키를 사용하고, 없으면 Secrets의 기본 키 사용
+    active_api_key = user_api_key.strip() if user_api_key.strip() else default_secrets_key.strip()
+    
+    if active_api_key:
+        if user_api_key.strip():
+            st.success("✅ 사용자 지정 API 키 연결 완료")
+        else:
+            st.success("✅ 기본 공유 API 키 연결 완료")
+    else:
+        st.warning("⚠️ API 키가 입력되지 않았습니다.")
+        
+    st.markdown("---")
     st.info("💡 TIP: 시그니처의 색감, 캐릭터 스타일, 모션을 종합 분석합니다.")
 
 col_left, col_right = st.columns([1, 1])
@@ -103,14 +125,14 @@ with col_right:
     st.markdown("</div>", unsafe_allow_html=True)
 
 if btn_analyze:
-    if not saved_gemini_key:
-        st.error("⚠️ Secrets에 GEMINI_API_KEY가 설정되어 있지 않습니다.")
+    if not active_api_key:
+        st.error("⚠️ 사용할 API 키가 누락되었습니다. 사이드바에 Gemini API 키를 입력해 주세요.")
     elif not uploaded_sig:
         st.error("⚠️ 시그니처 이미지/GIF 파일을 업로드해 주세요.")
     else:
         with st.spinner("Visual AI가 시그니처의 분위기, 색감, 연출을 분석 중입니다..."):
             try:
-                client = genai.Client(api_key=saved_gemini_key.strip())
+                client = genai.Client(api_key=active_api_key)
                 image_data = Image.open(uploaded_sig)
                 
                 prompt = f"""
@@ -134,7 +156,7 @@ if btn_analyze:
                 """
                 
                 response = client.models.generate_content(
-                    model='gemini-3.6-flash',
+                    model='gemini-2.5-flash',
                     contents=[prompt, image_data]
                 )
                 
@@ -151,7 +173,7 @@ if btn_analyze:
                 if "503" in err_str or "UNAVAILABLE" in err_str:
                     st.warning("⚡ 현재 구글 AI 서버에 순간 트래픽이 폭주하고 있습니다. 약 5초 후 다시 시도해주세요!")
                 elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    st.warning("⏳ 트래픽 사용량이 일시 도달했습니다. 10초 후 다시 시도해 주세요!")
+                    st.warning("⏳ 공유 API 키의 트래픽 사용량이 일시 도달했습니다. 좌측 사이드바에 개인 Gemini API 키를 넣거나 1분 후 다시 시도해 주세요!")
                 else:
                     st.error(f"⚠️ 분석 오류 발생: {e}")
 
@@ -168,7 +190,6 @@ if st.session_state.sig_result:
         for idx, song_title in enumerate(st.session_state.songs_list):
             st.markdown(f"#### 🎵 {idx+1}. {song_title}")
             
-            # 비디오 URL 입력 또는 바로 재생
             yt_input_url = st.text_input(
                 f"'{song_title}' 유튜브 영상 URL을 넣으시면 화면 플레이어로 즉시 재생됩니다", 
                 key=f"yt_url_direct_{idx}", 
