@@ -128,9 +128,9 @@ if btn_analyze:
                    (5번 곡까지 동일 형식)
                 """
                 
-                # 최신 안정화 모델(gemini-2.5-flash) 단일 지정
+                # 안내 메시지에 맞춘 최신 모델 gemini-3.6-flash 지정
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.6-flash',
                     contents=[prompt, image_data]
                 )
                 
