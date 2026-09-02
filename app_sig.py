@@ -1,24 +1,24 @@
 import os
+import io
 import streamlit as st
 from google import genai
 from PIL import Image
 import urllib.parse
+from pydub import AudioSegment
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
-# 화사하고 깔끔한 라이트 테마 (밝은 베이지/주황 포인트) CSS
+# 화사하고 깔끔한 라이트 테마 CSS
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
         background-color: #F8FAFC !important;
         color: #1E293B !important;
     }
-    
     [data-testid="stSidebar"] {
         background-color: #F1F5F9 !important;
         border-right: 1px solid #E2E8F0 !important;
     }
-
     .main-title {
         color: #FF6B00 !important;
         font-weight: 800 !important;
@@ -32,7 +32,6 @@ st.markdown("""
         font-size: 1.0rem !important;
         margin-bottom: 25px !important;
     }
-
     .cute-card {
         background-color: #FFFFFF !important;
         border-radius: 12px !important;
@@ -44,7 +43,6 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.04) !important;
         margin-bottom: 20px !important;
     }
-
     .stButton>button {
         background: linear-gradient(135deg, #FF6B00 0%, #E65100 100%) !important;
         color: #FFFFFF !important;
@@ -58,7 +56,6 @@ st.markdown("""
     .stButton>button:hover {
         background: linear-gradient(135deg, #FF8533 0%, #FF6B00 100%) !important;
     }
-
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
         background-color: #FFFFFF !important;
         border-color: #CBD5E1 !important;
@@ -150,41 +147,56 @@ if st.session_state.sig_result:
     st.divider()
     st.markdown("### 📊 AI 시그니처 음악 분석 리포트")
     st.info(st.session_state.sig_result)
+
+st.divider()
+
+# ✂️ MP3 실시간 자르기 파트
+st.subheader("✂️ MP3 음원 자르기 & 다운로드 스튜디오")
+st.caption("컴퓨터에 갖고 계신 MP3 파일을 업로드하여 원하는 구간만 잘라 다운로드하세요.")
+
+uploaded_audio = st.file_uploader("자르고 싶은 MP3 파일 업로드", type=["mp3", "wav"])
+
+if uploaded_audio:
+    st.audio(uploaded_audio, format="audio/mp3")
     
-    st.divider()
-    st.subheader("✂️ 음원 준비 & 초단위 구간 자르기 센터")
-    
-    col_cut1, col_cut2, col_cut3 = st.columns([1, 1, 2])
+    col_cut1, col_cut2 = st.columns([1, 1])
     with col_cut1:
-        start_sec = st.number_input("시작 시간 (초)", min_value=0, max_value=300, value=0)
+        start_sec = st.number_input("자르고 싶은 시작 시간 (초)", min_value=0, max_value=600, value=0)
     with col_cut2:
-        end_sec = st.number_input("종료 시간 (초)", min_value=1, max_value=300, value=5)
-    
-    with col_cut3:
-        st.write("")
-        st.write("")
-        custom_note = f"""[ 🎀 아프리카TV 시그니처 BGM 리액션 가이드 ]
-■ 지정 사용 구간: {start_sec}초 ~ {end_sec}초 (총 {end_sec - start_sec}초간 재생)
+        end_sec = st.number_input("자르고 싶은 종료 시간 (초)", min_value=1, max_value=600, value=15)
 
-[ AI 음악 추천 리포트 전문 ]
-{st.session_state.sig_result}
-"""
-        st.download_button(
-            label=f"💾 [{start_sec}초 ~ {end_sec}초 구간] 가이드 메모장 다운로드",
-            data=custom_note,
-            file_name=f"Signature_BGM_{start_sec}s_to_{end_sec}s.txt",
-            use_container_width=True
-        )
+    if st.button("✂️ 음원 자르기 실행", use_container_width=True):
+        if start_sec >= end_sec:
+            st.error("⚠️ 종료 시간이 시작 시간보다 커야 합니다.")
+        else:
+            try:
+                with st.spinner("음원 구간을 자르는 중입니다..."):
+                    # 음원 읽기 및 자르기 (초 -> 밀리초 변환)
+                    sound = AudioSegment.from_file(uploaded_audio)
+                    cut_sound = sound[start_sec * 1000 : end_sec * 1000]
+                    
+                    # 메모리 내 버퍼에 MP3 형태로 저장
+                    buffer = io.BytesIO()
+                    cut_sound.export(buffer, format="mp3")
+                    buffer.seek(0)
+                    
+                    st.success(f"✅ {start_sec}초부터 {end_sec}초까지 음원을 성공적으로 잘랐습니다!")
+                    st.audio(buffer, format="audio/mp3")
+                    
+                    st.download_button(
+                        label=f"📥 잘라낸 MP3 다운로드 ({start_sec}초 ~ {end_sec}초)",
+                        data=buffer,
+                        file_name=f"cut_{start_sec}s_to_{end_sec}s_{uploaded_audio.name}",
+                        mime="audio/mp3",
+                        use_container_width=True
+                    )
+            except Exception as e:
+                st.error(f"⚠️ 음원 자르기 오류 발생: {e}")
 
-    st.markdown("---")
-    st.markdown("#### 🛠️ 음원 다운로드 후 자르는 방법")
-    st.caption("1. 아래 유튜브 검색 링크로 원하는 노래 음원을 다운로드합니다.")
-    st.caption("2. [✂️ 무료 웹 MP3 자르기 도구(AudioTrimmer) 열기](https://audiotrimmer.com/kr/) 에 음원 파일을 올린 후 위에서 설정한 초(Second) 구간대로 잘라 저장하세요!")
-
-    st.divider()
-    st.subheader("🔍 유튜브 추천 음원 검색 바로가기")
-    search_keyword = st.text_input("검색할 노래 제목이나 아티스트 입력", placeholder="예: 뉴진스 Hype Boy")
-    if search_keyword:
-        encoded_query = urllib.parse.quote(f"{search_keyword} BGM")
-        youtube_url = f"https://www.youtube.com/results?search_query={encoded_query}"
-        st.markdown(f"👉 [▶️ 유튜브에서 '{search_keyword}' 검색해서 들어보기]({youtube_url})")
+st.divider()
+st.subheader("🔍 유튜브 추천 음원 검색 바로가기")
+search_keyword = st.text_input("검색할 노래 제목이나 아티스트 입력", placeholder="예: 뉴진스 Hype Boy")
+if search_keyword:
+    encoded_query = urllib.parse.quote(f"{search_keyword} BGM")
+    youtube_url = f"https://www.youtube.com/results?search_query={encoded_query}"
+    st.markdown(f"👉 [▶️ 유튜브에서 '{search_keyword}' 검색해서 들어보기]({youtube_url})")
