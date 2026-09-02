@@ -9,7 +9,6 @@ import re
 
 st.set_page_config(page_title="아프리카TV 시그니처 BGM 추천 AI", layout="wide", page_icon="🎵")
 
-# 경고/안내 박스 내부 다크 글자색 고정 CSS
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -163,15 +162,25 @@ if st.session_state.sig_result:
     st.markdown(st.session_state.sig_result)
     
     st.divider()
-    st.subheader("🎬 추천곡 바로 듣기 센터")
+    st.subheader("🎬 추천곡 바로 듣기 비디오 플레이어")
     
     if st.session_state.songs_list:
         for idx, song_title in enumerate(st.session_state.songs_list):
             st.markdown(f"#### 🎵 {idx+1}. {song_title}")
-            encoded_query = urllib.parse.quote(f"{song_title} Official BGM Audio")
-            yt_search_link = f"https://www.youtube.com/results?search_query={encoded_query}"
             
-            st.markdown(f"👉 **[▶️ 유튜브에서 '{song_title}' 바로 들어보기 (원클릭)]({yt_search_link})**")
+            # 비디오 URL 입력 또는 바로 재생
+            yt_input_url = st.text_input(
+                f"'{song_title}' 유튜브 영상 URL을 넣으시면 화면 플레이어로 즉시 재생됩니다", 
+                key=f"yt_url_direct_{idx}", 
+                placeholder="예: https://www.youtube.com/watch?v=..."
+            )
+            
+            if yt_input_url:
+                st.video(yt_input_url)
+            else:
+                encoded_query = urllib.parse.quote(f"{song_title} Official Audio")
+                st.caption(f"👉 [유튜브에서 '{song_title}' 주소 복사하기](https://www.youtube.com/results?search_query={encoded_query})")
+            
             st.divider()
 
 st.divider()
