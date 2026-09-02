@@ -20,7 +20,8 @@ if "saved_items" not in st.session_state:
         "yt_diag": [],     # 🎥 유튜브 성과 진단
         "img_analysis": [],# 📸 이미지 시각 분석
         "influencer": [],  # 👥 인플루언서 매칭
-        "calendar": []     # 📅 30일 콘텐츠 달력
+        "calendar": [],    # 📅 30일 콘텐츠 달력
+        "copywriting": []  # ✍️ 카피라이팅 문구
     }
 
 # 생성 결과 세션 보관
@@ -30,6 +31,7 @@ if "saved_yt_result" not in st.session_state: st.session_state.saved_yt_result =
 if "saved_img_result" not in st.session_state: st.session_state.saved_img_result = None
 if "saved_inf_result" not in st.session_state: st.session_state.saved_inf_result = None
 if "saved_cal_result" not in st.session_state: st.session_state.saved_cal_result = None
+if "saved_copy_result" not in st.session_state: st.session_state.saved_copy_result = None
 
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
 st.caption("결과물 확인 후 원하는 제목을 지정하여 카테고리별 저장소에 보관할 수 있습니다.")
@@ -105,6 +107,16 @@ with st.sidebar:
                 st.markdown("---")
         else: st.caption("저장된 달력이 없습니다.")
 
+    # 7. 카피라이팅 보관함
+    with st.expander("✍️ 카피라이팅 보관함", expanded=False):
+        if st.session_state.saved_items["copywriting"]:
+            for idx, item in enumerate(st.session_state.saved_items["copywriting"], 1):
+                st.markdown(f"**📌 {item['title']}**")
+                st.code(item['content'], language="markdown")
+                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_copy_{idx}")
+                st.markdown("---")
+        else: st.caption("저장된 카피가 없습니다.")
+
 def get_gemini_client():
     if not saved_gemini_key:
         st.error("⚠️ Streamlit Secrets에 GEMINI_API_KEY가 설정되어 있지 않습니다.")
@@ -117,7 +129,6 @@ def get_gemini_client():
 
 def safe_gemini_generate(client, contents_input):
     try:
-        # 최신 권장 모델인 gemini-3.6-flash 로 업데이트
         response = client.models.generate_content(
             model='gemini-3.6-flash',
             contents=contents_input
@@ -251,8 +262,12 @@ with main_tab2:
 # ==========================================
 with main_tab3:
     st.markdown("### 🛠️ 확장 마케팅 스튜디오")
-    tab_yt_std, tab_img, tab_inf, tab_plan = st.tabs([
-        "🎥 내 유튜브 영상 성과 진단", "📸 제품 사진 기반 AI 이미지 분석", "👥 키워드 기반 인플루언서 탐색", "📅 30일 콘텐츠 달력"
+    tab_yt_std, tab_img, tab_inf, tab_cal, tab_copy = st.tabs([
+        "🎥 내 유튜브 영상 성과 진단", 
+        "📸 제품 사진 기반 AI 이미지 분석", 
+        "👥 키워드 기반 인플루언서 탐색", 
+        "📅 30일 콘텐츠 달력 생성기",
+        "✍️ 마케팅 카피라이팅 추출기"
     ])
 
     # 1. 유튜브 성과 진단
@@ -345,23 +360,57 @@ with main_tab3:
                 })
                 st.success("✅ '인플루언서 매칭 보관함'에 저장되었습니다!")
 
-    # 4. 30일 달력
-    with tab_plan:
-        plan_cal_topic = st.text_input("실행 주제 및 목표", placeholder="예: 신제품 펀딩")
-        if st.button("📅 30일 달력 & 카피 추출", use_container_width=True):
+    # 4. 독립된 30일 콘텐츠 달력 생성기
+    with tab_cal:
+        st.markdown("#### 📅 30일 콘텐츠 마케팅 달력 생성")
+        plan_cal_topic = st.text_input("달력 제작할 브랜드/제품 및 목표", placeholder="예: 신제품 텀블러 와디즈 펀딩 30일 캠페인", key="cal_input_topic")
+        
+        if st.button("📅 30일 콘텐츠 달력 생성 실행", type="primary", use_container_width=True):
             gemini_client = get_gemini_client()
             if gemini_client and plan_cal_topic:
-                res_cal = safe_gemini_generate(gemini_client, f"30일 콘텐츠 달력 및 카피 작성: {plan_cal_topic}")
-                if res_cal:
-                    st.session_state.saved_cal_result = res_cal
+                with st.spinner("30일 콘텐츠 전략 및 달력 생성 중..."):
+                    res_cal = safe_gemini_generate(gemini_client, f"다음 브랜드/목표에 대한 1일차부터 30일차까지의 상세 콘텐츠 마케팅 달력(주차별 목표, 일별 콘텐츠 주제 및 게시 포맷 포함)을 작성하세요: {plan_cal_topic}")
+                    if res_cal:
+                        st.session_state.saved_cal_result = res_cal
 
         if st.session_state.saved_cal_result:
             st.divider()
             st.markdown(st.session_state.saved_cal_result)
-            save_cal_title = st.text_input("저장할 제목 입력", value=f"{plan_cal_topic} 30일 콘텐츠 달력", key="save_cal_title")
+            save_cal_title = st.text_input("저장할 제목 입력", value=f"{plan_cal_topic} 30일 달력", key="save_cal_title")
             if st.button("💾 30일 달력 보관함에 저장", use_container_width=True):
                 st.session_state.saved_items["calendar"].append({
                     "title": save_cal_title.strip() if save_cal_title.strip() else "제목 없음",
                     "content": st.session_state.saved_cal_result
                 })
                 st.success("✅ '30일 달력 보관함'에 저장되었습니다!")
+
+    # 5. 독립된 마케팅 카피라이팅 추출기
+    with tab_copy:
+        st.markdown("#### ✍️ 마케팅 카피라이팅 문구 추출")
+        col_c1, col_c2 = st.columns([2, 1])
+        with col_c1:
+            copy_topic = st.text_input("카피라이팅 대상 제품/브랜드명", placeholder="예: 민트볼 틴케이스", key="copy_input_topic")
+        with col_c2:
+            copy_channel = st.selectbox("게시 채널", ["인스타그램 릴스/포스터", "유튜브 숏폼/제목", "광고 헤드라인", "상세페이지 메인문구"], key="copy_input_channel")
+        
+        copy_detail = st.text_area("강조하고 싶은 소구점/혜택", placeholder="예: 한 손에 쏙 들어오는 휴대성, 입안 가득 퍼지는 강력한 상쾌함", height=100, key="copy_input_detail")
+        
+        if st.button("✍️ 마케팅 카피라이팅 문구 추출 실행", type="primary", use_container_width=True):
+            gemini_client = get_gemini_client()
+            if gemini_client and copy_topic:
+                with st.spinner("카피라이팅 문구 추출 중..."):
+                    copy_prompt = f"제품/브랜드: {copy_topic}, 채널: {copy_channel}, 주요혜택: {copy_detail}\n위 정보를 바탕으로 시선을 사로잡는 마케팅 카피라이팅 문구 10개를 톤앤매너별로 추출하세요."
+                    res_copy = safe_gemini_generate(gemini_client, copy_prompt)
+                    if res_copy:
+                        st.session_state.saved_copy_result = res_copy
+
+        if st.session_state.saved_copy_result:
+            st.divider()
+            st.markdown(st.session_state.saved_copy_result)
+            save_copy_title = st.text_input("저장할 제목 입력", value=f"{copy_topic} 카피라이팅", key="save_copy_title")
+            if st.button("💾 카피라이팅 보관함에 저장", use_container_width=True):
+                st.session_state.saved_items["copywriting"].append({
+                    "title": save_copy_title.strip() if save_copy_title.strip() else "제목 없음",
+                    "content": st.session_state.saved_copy_result
+                })
+                st.success("✅ '카피라이팅 보관함'에 저장되었습니다!")
