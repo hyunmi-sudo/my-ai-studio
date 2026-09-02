@@ -4,56 +4,76 @@ from google import genai
 from PIL import Image
 import urllib.parse
 
-st.set_page_config(page_title="🎖️ 시그니처 BGM 작전본부 🎖️", layout="wide", page_icon="💥")
+st.set_page_config(page_title="🎖️ 서든어택 시그니처 BGM 작전본부 🎖️", layout="wide", page_icon="💥")
 
-# 서든어택 밀리터리 FPS 다크/카키/오렌지 스타일링 CSS
+# 서든어택 밀리터리 다크/카키/오렌지 강제 CSS 테마
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #121417;
-        color: #E2E8F0;
+    /* 전체 배경 강제 다크/카키 밀리터리화 */
+    html, body, [data-testid="stAppViewContainer"], .stApp {
+        background-color: #121619 !important;
+        color: #D1D5DB !important;
     }
+    
+    /* 사이드바 다크 톤 고정 */
+    [data-testid="stSidebar"] {
+        background-color: #1A2024 !important;
+        border-right: 2px solid #2D3748 !important;
+    }
+
+    /* 메인 타이틀 & 글자 스타일링 */
     .main-title {
-        color: #FF6B00;
-        font-weight: 900;
-        font-size: 2.3rem;
-        text-align: center;
-        letter-spacing: 2px;
-        text-shadow: 0px 0px 10px rgba(255, 107, 0, 0.5);
-        margin-bottom: 0px;
+        color: #FF6B00 !important;
+        font-weight: 900 !important;
+        font-size: 2.3rem !important;
+        text-align: center !important;
+        letter-spacing: 2px !important;
+        text-shadow: 0px 0px 12px rgba(255, 107, 0, 0.6) !important;
+        margin-bottom: 0px !important;
     }
     .sub-title {
-        color: #8B9B90;
-        text-align: center;
-        font-size: 1.0rem;
-        font-weight: bold;
-        margin-bottom: 25px;
+        color: #94A3B8 !important;
+        text-align: center !important;
+        font-size: 1.0rem !important;
+        font-weight: bold !important;
+        margin-bottom: 25px !important;
     }
+
+    /* 서든어택 작전 카드 스타일 */
     .sudden-card {
-        background-color: #1C2026;
-        border-radius: 10px;
-        padding: 20px;
-        border-left: 5px solid #FF6B00;
-        border-top: 1px solid #2D3748;
-        border-right: 1px solid #2D3748;
-        border-bottom: 1px solid #2D3748;
-        box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
-        margin-bottom: 20px;
+        background-color: #1E242B !important;
+        border-radius: 8px !important;
+        padding: 22px !important;
+        border-left: 6px solid #FF6B00 !important;
+        border-top: 1px solid #334155 !important;
+        border-right: 1px solid #334155 !important;
+        border-bottom: 1px solid #334155 !important;
+        box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.6) !important;
+        margin-bottom: 20px !important;
     }
+
+    /* 버튼 스타일: 주황색 작전 수행 버튼 */
     .stButton>button {
-        background: linear-gradient(135deg, #FF6B00 0%, #CC5200 100%) !important;
+        background: linear-gradient(135deg, #FF6B00 0%, #B34700 100%) !important;
         color: #FFFFFF !important;
-        border-radius: 6px !important;
+        border-radius: 4px !important;
         border: 1px solid #FF8533 !important;
         font-weight: 900 !important;
         height: 52px !important;
         font-size: 1.1rem !important;
         letter-spacing: 1px !important;
-        box-shadow: 0px 4px 12px rgba(255, 107, 0, 0.4) !important;
+        box-shadow: 0px 4px 14px rgba(255, 107, 0, 0.4) !important;
     }
     .stButton>button:hover {
         background: linear-gradient(135deg, #FF8533 0%, #FF6B00 100%) !important;
         border-color: #FFA366 !important;
+    }
+
+    /* 입력 박스 및 셀렉트 박스 밀리터리 톤 커스텀 */
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
+        background-color: #0F1215 !important;
+        border-color: #334155 !important;
+        color: #F8FAFC !important;
     }
     </style>
 """, unsafe_allow_html=True)
