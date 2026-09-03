@@ -81,8 +81,8 @@ with st.sidebar:
     user_gemini_key = st.text_input(
         "개인 Gemini API 키 입력", 
         type="password", 
-        placeholder="AIzaSy...",
-        help="기본 공유 키의 일일 무료 제한(20회) 초과 시 개인 API 키를 입력하면 제한 없이 작동합니다."
+        placeholder="AQ...",
+        help="개인 API 키(AQ... 또는 AIzaSy...)를 입력하시면 대기 제한 없이 작동합니다."
     )
     
     active_gemini_key = user_gemini_key.strip() if user_gemini_key.strip() else default_secrets_key.strip()
@@ -173,28 +173,21 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 429 및 503 오류 발생 시 친절한 예외 메시지 출력
+# 🛡️ 디버깅 메시지 투명화 및 안전한 호출 처리
 def safe_gemini_generate(client, contents_input):
-    for attempt in range(3):
-        try:
-            response = client.models.generate_content(
-                model='gemini-3.6-flash',
-                contents=contents_input
-            )
-            if response and response.text:
-                return response.text
-        except Exception as e:
-            err_msg = str(e)
-            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-                st.error("⚠️ 기본 공유 API 키의 일일 무료 한도(20회)가 초과되었습니다. 사이드바에 개인 Gemini API 키를 입력하시면 제한 없이 바로 사용 가능합니다.")
-                return None
-            elif "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
-                time.sleep(2 * (attempt + 1))
-                continue
-            else:
-                st.error(f"⚠️ API 호출 중 오류가 발생했습니다: {err_msg}")
-                return None
-    st.error("⚠️ 구글 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.")
+    try:
+        response = client.models.generate_content(
+            model='gemini-3.6-flash',
+            contents=contents_input
+        )
+        if response and response.text:
+            return response.text
+    except Exception as e:
+        err_msg = str(e)
+        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+            st.error("⚠️ 일일 무료 호출 한도가 도달했습니다. 잠시 후 다시 시도하시거나 입력하신 개인 API 키가 올바른지 확인해 주세요.")
+        else:
+            st.error(f"⚠️ API 처리 중 문제 발생: {err_msg}")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -368,7 +361,6 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
-    # 📸 2. 제품 이미지 분석 & 세션 고정 보관함 저장 보완
     with tab_img:
         st.markdown("#### 📸 제품 이미지 기반 시각 분석 & AI 썸네일/프롬프트 기획")
         col_img1, col_img2 = st.columns([1, 1])
