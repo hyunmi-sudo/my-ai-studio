@@ -82,7 +82,7 @@ with st.sidebar:
         "개인 Gemini API 키 입력", 
         type="password", 
         placeholder="AQ...",
-        help="개인 API 키(AQ... 또는 AIzaSy...)를 입력하시면 대기 제한 없이 작동합니다."
+        help="개인 API 키를 입력하시면 공유 제한 없이 본인 전용 할당량으로 즉시 작동합니다."
     )
     
     active_gemini_key = user_gemini_key.strip() if user_gemini_key.strip() else default_secrets_key.strip()
@@ -173,21 +173,32 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 디버깅 메시지 투명화 및 안전한 호출 처리
+# 🛡️ 503 서버 과부하 자동 전환 우회 핸들러
 def safe_gemini_generate(client, contents_input):
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.6-flash',
-            contents=contents_input
-        )
-        if response and response.text:
-            return response.text
-    except Exception as e:
-        err_msg = str(e)
-        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-            st.error("⚠️ 일일 무료 호출 한도가 도달했습니다. 잠시 후 다시 시도하시거나 입력하신 개인 API 키가 올바른지 확인해 주세요.")
-        else:
-            st.error(f"⚠️ API 처리 중 문제 발생: {err_msg}")
+    models_to_try = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash']
+    last_error = ""
+
+    for target_model in models_to_try:
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=target_model,
+                    contents=contents_input
+                )
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                last_error = str(e)
+                if "503" in last_error or "UNAVAILABLE" in last_error or "high demand" in last_error:
+                    time.sleep(1.5)
+                    continue
+                elif "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
+                    st.error("⚠️ 일일 사용 한도가 초과되었습니다. 입력하신 개인 API 키 상태를 확인해 주세요.")
+                    return None
+                else:
+                    break
+
+    st.error("⚠️ 구글 서버 트래픽이 일시적으로 매우 높은 상태입니다. 10초 후 다시 실행 버튼을 눌러주세요.")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
