@@ -68,15 +68,24 @@ if "saved_prompt_result" not in st.session_state: st.session_state.saved_prompt_
 if "saved_plan_result" not in st.session_state: st.session_state.saved_plan_result = None
 if "saved_yt_result" not in st.session_state: st.session_state.saved_yt_result = None
 if "saved_img_result" not in st.session_state: st.session_state.saved_img_result = None
+if "saved_img_media" not in st.session_state: st.session_state.saved_img_media = None
 if "saved_inf_result" not in st.session_state: st.session_state.saved_inf_result = None
 if "saved_cal_result" not in st.session_state: st.session_state.saved_cal_result = None
 if "saved_copy_result" not in st.session_state: st.session_state.saved_copy_result = None
 
-# 👁️ 보관함 내용 팝업 모달창 정의
-@st.dialog("📄 저장 내용 한눈에 보기", width="large")
-def show_detail_dialog(title, content):
+# 👁️ 미디어 미리보기 포함 팝업 모달
+@st.dialog("📄 저장 내용 & 첨부 미디어 한눈에 보기", width="large")
+def show_detail_dialog(title, content, media_obj=None):
     st.markdown(f"### 📌 {title}")
-    st.divider()
+    
+    if media_obj is not None:
+        st.markdown("#### 🖼️ 분석에 사용된 업로드 미디어")
+        if isinstance(media_obj, Image.Image):
+            st.image(media_obj, caption="업로드 이미지", width=350)
+        elif isinstance(media_obj, bytes):
+            st.video(media_obj)
+        st.divider()
+
     st.markdown(content)
 
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
@@ -127,7 +136,7 @@ with st.sidebar:
                     col_b1, col_b2 = st.columns([1, 1])
                     with col_b1:
                         if st.button("👁️ 보기", key=f"v_{cat_key}_{idx}", use_container_width=True):
-                            show_detail_dialog(item['title'], item['content'])
+                            show_detail_dialog(item['title'], item['content'], item.get('media'))
                     with col_b2:
                         st.download_button("💾 다운", item['content'], file_name=f"{item['title']}{ext}", key=f"dl_{cat_key}_{idx}", use_container_width=True)
                     st.markdown("---")
@@ -381,9 +390,11 @@ with main_tab3:
                         4. 💡 숏폼(릴스/쇼츠) 활용 마케팅 팁
                         """
                         res_media = safe_gemini_generate(gemini_client, [prompt, input_img])
+                        st.session_state.saved_img_media = input_img
                     else:
+                        vid_bytes = uploaded_media.read()
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
-                            tmp_file.write(uploaded_media.read())
+                            tmp_file.write(vid_bytes)
                             tmp_path = tmp_file.name
 
                         try:
@@ -403,6 +414,7 @@ with main_tab3:
                             4. 📌 이 영상에 어울리는 추천 썸네일 문구 및 구도 제안
                             """
                             res_media = safe_gemini_generate(gemini_client, [vid_prompt, video_file])
+                            st.session_state.saved_img_media = vid_bytes
                         except Exception as ex:
                             st.error(f"동영상 파일 분석 중 오류 발생: {ex}")
                             res_media = None
@@ -419,9 +431,10 @@ with main_tab3:
                 if st.button("💾 시각적 미디어 보관함에 저장", use_container_width=True):
                     st.session_state.saved_items["img_analysis"].append({
                         "title": save_img_title.strip() if save_img_title.strip() else "제목 없음",
-                        "content": st.session_state.saved_img_result
+                        "content": st.session_state.saved_img_result,
+                        "media": st.session_state.get("saved_img_media")
                     })
-                    st.success("✅ '시각적 미디어 보관함'에 저장되었습니다!")
+                    st.success("✅ '시각적 미디어 보관함'에 업로드 파일과 함께 저장되었습니다!")
                     st.rerun()
             with col_ibtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_img_result, file_name="Media_Analysis.txt", use_container_width=True)
