@@ -173,17 +173,25 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 최신 gemini-3.6-flash 정적 모델 적용
-def safe_gemini_generate(client, contents_input):
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.6-flash',
-            contents=contents_input
-        )
-        if response and response.text:
-            return response.text
-    except Exception as e:
-        st.error(f"⚠️ API 생성 오류 발생: {e}")
+# 🛡️ 503 서버 과부하 대응: 최대 3회 백오프 자동 재시도 함수
+def safe_gemini_generate(client, contents_input, max_retries=3):
+    last_error = ""
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=contents_input
+            )
+            if response and response.text:
+                return response.text
+        except Exception as e:
+            last_error = str(e)
+            if "503" in last_error or "UNAVAILABLE" in last_error:
+                time.sleep(1.5 * (attempt + 1))  # 백오프 대기
+                continue
+            break
+            
+    st.error(f"⚠️ 구글 서버 트래픽이 지연되고 있습니다. 1~2초 후 다시 [생성 실행] 버튼을 눌러주세요. ({last_error})")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -354,7 +362,6 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
-    # 📸 2. 제품 이미지 분석 & AI 썸네일/프롬프트 생성기
     with tab_img:
         st.markdown("#### 📸 제품 이미지 기반 시각 분석 & AI 썸네일/프롬프트 기획")
         col_img1, col_img2 = st.columns([1, 1])
