@@ -82,14 +82,14 @@ with st.sidebar:
         "개인 Gemini API 키 입력", 
         type="password", 
         placeholder="AIzaSy...",
-        help="공유 키 트래픽 폭주 시 개인 API 키를 입력하시면 대기 없이 즉시 생성됩니다."
+        help="기본 공유 키의 일일 무료 제한(20회) 초과 시 개인 API 키를 입력하면 제한 없이 작동합니다."
     )
     
     active_gemini_key = user_gemini_key.strip() if user_gemini_key.strip() else default_secrets_key.strip()
     
     if active_gemini_key:
         if user_gemini_key.strip():
-            st.success("✅ 사용자 지정 개인 API 키 연결 완료 (우선 처리)")
+            st.success("✅ 개인 API 키 연결 완료 (우선 사용)")
         else:
             st.info("ℹ️ 기본 공유 API 키 연결 중")
     else:
@@ -173,7 +173,7 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 최신 gemini-3.6-flash 정식 모델 및 트래픽 503 자동 재시도
+# 🛡️ 429 Resource Exhausted 및 503 과부하 예외 처리 강화
 def safe_gemini_generate(client, contents_input):
     for attempt in range(3):
         try:
@@ -185,13 +185,16 @@ def safe_gemini_generate(client, contents_input):
                 return response.text
         except Exception as e:
             err_msg = str(e)
-            if "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
+            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                st.error("⚠️ 기본 공유 API 키의 일일 무료 한도(20회)가 초과되었습니다. 사이드바에 개인 Gemini API 키를 입력하시면 연속으로 바로 이용 가능합니다.")
+                return None
+            elif "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
                 time.sleep(2 * (attempt + 1))
                 continue
             else:
-                st.error(f"⚠️ API 호출 오류: {err_msg}")
+                st.error(f"⚠️ API 호출 중 오류가 발생했습니다: {err_msg}")
                 return None
-    st.error("⚠️ 구글 서버 트래픽이 지연되고 있습니다. 개인 Gemini API 키를 등록하면 대기 없이 바로 동작합니다.")
+    st.error("⚠️ 구글 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
