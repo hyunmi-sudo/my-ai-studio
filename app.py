@@ -13,7 +13,7 @@ st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", l
 
 default_secrets_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# 🎨 다크 모드 고대비 가독성 CSS
+# 🎨 다크 모드 스타일 고정
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -70,13 +70,6 @@ if "saved_img_result" not in st.session_state: st.session_state.saved_img_result
 if "saved_inf_result" not in st.session_state: st.session_state.saved_inf_result = None
 if "saved_cal_result" not in st.session_state: st.session_state.saved_cal_result = None
 if "saved_copy_result" not in st.session_state: st.session_state.saved_copy_result = None
-
-# 📊 마케팅 성과 원본 데이터 세션 초기화
-if "analytics_data" not in st.session_state:
-    st.session_state.analytics_data = pd.DataFrame([
-        {"날짜": "2026-08-25", "플랫폼": "인스타그램 릴스", "콘텐츠 제목": "민트볼 챌린지 1탄", "사용 음원": "Minty Fresh Beat", "조회수": 45000, "좋아요": 3200, "댓글": 180, "공유수": 420},
-        {"날짜": "2026-08-26", "플랫폼": "유튜브 쇼츠", "콘텐츠 제목": "한 손에 쏙 들어오는 민트볼", "사용 음원": "Minty Fresh Beat", "조회수": 82000, "좋아요": 6100, "댓글": 340, "공유수": 890},
-    ])
 
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
 st.divider()
@@ -181,15 +174,19 @@ def get_gemini_client():
         return None
 
 def safe_gemini_generate(client, contents_input):
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.6-flash',
-            contents=contents_input
-        )
-        if response and response.text:
-            return response.text
-    except Exception as e:
-        st.error(f"⚠️ API 요청 실패: {e}")
+    # 503 UNAVAILABLE 방지 우회 로직 추가
+    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash']
+    for m in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=m,
+                contents=contents_input
+            )
+            if response and response.text:
+                return response.text
+        except Exception:
+            continue
+    st.error("⚠️ 서버 트래픽 폭주로 생성이 잠시 지연되었습니다. 잠시 후 다시 시도해 주세요.")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -229,74 +226,10 @@ def get_youtube_info(url):
     except Exception:
         return {'url': url, 'title': '정보 수집 실패', 'views': 0, 'likes': 0, 'comments': 0, 'channel': 'N/A'}
 
-def extract_auto_yt_data(url):
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'extractor_args': {'youtube': {'player_client': ['web', 'android']}}
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            video_title = info.get('title', 'N/A')
-            uploader = info.get('uploader') or info.get('channel') or ''
-            
-            track = info.get('track')
-            artist = info.get('artist')
-            
-            if not (track and artist):
-                for key in ['title', 'alt_title', 'description']:
-                    val = info.get(key, '')
-                    if isinstance(val, str) and '·' in val:
-                        parts = val.split('·')
-                        if len(parts) >= 2:
-                            track, artist = parts[0].strip(), parts[1].strip()
-                            break
-
-            if track and artist:
-                final_song = f"{track} · {artist}"
-            elif track:
-                final_song = track
-            elif artist:
-                final_song = artist
-            else:
-                match = re.search(r'([가-힣\w\s]+)\s*-\s*([가-힣\w\s]+)', video_title)
-                if match:
-                    final_song = match.group(0).strip()
-                else:
-                    clean_title = re.sub(r'[\[\(].*?[\]\)]|#\w+', '', video_title).strip()
-                    if uploader and clean_title:
-                        final_song = f"{uploader} ({clean_title[:12]}...)"
-                    elif clean_title:
-                        final_song = clean_title
-                    else:
-                        final_song = "자유 입력 음원"
-
-            return {
-                "날짜": time.strftime("%Y-%m-%d"),
-                "플랫폼": "유튜브 쇼츠",
-                "콘텐츠 제목": video_title,
-                "사용 음원": final_song,
-                "조회수": int(info.get('view_count') or 0),
-                "좋아요": int(info.get('like_count') or 0),
-                "댓글": int(info.get('comment_count') or 0),
-                "공유수": 0
-            }
-    except Exception:
-        return {
-            "날짜": time.strftime("%Y-%m-%d"),
-            "플랫폼": "유튜브 쇼츠",
-            "콘텐츠 제목": f"URL 링크 영상 ({url[-11:]})",
-            "사용 음원": "직접 수정 음원",
-            "조회수": 0, "좋아요": 0, "댓글": 0, "공유수": 0
-        }
-
-main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
+main_tab1, main_tab2, main_tab3 = st.tabs([
     "🎬 1. 영상 제작 전용 AI 프롬프트 생성기", 
     "📄 2. 영상 종합 기획서 & 촬영계획서 작성기",
-    "🛠️ 3. 확장 마케팅 스튜디오",
-    "📊 4. 마케팅 성과 & 음원 분석 대시보드"
+    "🛠️ 3. 확장 마케팅 스튜디오"
 ])
 
 # ==========================================
@@ -405,7 +338,7 @@ with main_tab3:
                         except Exception as e: pass
                     if fetched:
                         v_summary = "".join([f"\n- [{d['id']}] 제목:{d['title']} / 조회수:{d['views']} / 좋아요:{d['likes']}" for d in fetched])
-                        res_yt = safe_gemini_generate(gemini_client, f"다음 유튜브 데이터 분석 및 해법을 작성하세요: {v_summary}")
+                        res_yt = safe_gemini_generate(gemini_client, f"다음 유튜브 데이터 분석 및 해법을 한국어로 작성하세요: {v_summary}")
                         if res_yt:
                             st.session_state.saved_yt_result = res_yt
 
@@ -424,7 +357,7 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
-    # 📸 2. 제품 이미지 분석 & AI 썸네일/프롬프트 생성기 (한국어 보장 및 썸네일 기획 연동)
+    # 📸 2. 제품 이미지 분석 & AI 썸네일/프롬프트 생성기 (한국어 보장)
     with tab_img:
         st.markdown("#### 📸 제품 이미지 기반 시각 분석 & AI 썸네일/프롬프트 기획")
         col_img1, col_img2 = st.columns([1, 1])
@@ -492,7 +425,7 @@ with main_tab3:
         if st.button("👥 인플루언서 매칭 실행", use_container_width=True):
             gemini_client = get_gemini_client()
             if gemini_client and inf_keyword:
-                res_inf = safe_gemini_generate(gemini_client, f"인플루언서 매칭 가이드: {inf_keyword} ({inf_platform})")
+                res_inf = safe_gemini_generate(gemini_client, f"인플루언서 매칭 가이드(한국어로 작성): {inf_keyword} ({inf_platform})")
                 if res_inf:
                     st.session_state.saved_inf_result = res_inf
 
@@ -518,7 +451,7 @@ with main_tab3:
             gemini_client = get_gemini_client()
             if gemini_client and plan_cal_topic:
                 with st.spinner("30일 콘텐츠 전략 및 달력 생성 중..."):
-                    res_cal = safe_gemini_generate(gemini_client, f"다음 브랜드/목표에 대한 1일차부터 30일차까지의 상세 콘텐츠 마케팅 달력(주차별 목표, 일별 콘텐츠 주제 및 게시 포맷 포함)을 작성하세요: {plan_cal_topic}")
+                    res_cal = safe_gemini_generate(gemini_client, f"다음 브랜드/목표에 대한 1일차부터 30일차까지의 상세 콘텐츠 마케팅 달력(주차별 목표, 일별 콘텐츠 주제 및 게시 포맷 포함, 한국어 필수)을 작성하세요: {plan_cal_topic}")
                     if res_cal:
                         st.session_state.saved_cal_result = res_cal
 
@@ -550,7 +483,7 @@ with main_tab3:
             gemini_client = get_gemini_client()
             if gemini_client and copy_topic:
                 with st.spinner("카피라이팅 문구 추출 중..."):
-                    copy_prompt = f"제품/브랜드: {copy_topic}, 채널: {copy_channel}, 주요혜택: {copy_detail}\n위 정보를 바탕으로 마케팅 카피라이팅 문구 10개를 작성하세요."
+                    copy_prompt = f"제품/브랜드: {copy_topic}, 채널: {copy_channel}, 주요혜택: {copy_detail}\n위 정보를 바탕으로 마케팅 카피라이팅 문구 10개를 한국어로 작성하세요."
                     res_copy = safe_gemini_generate(gemini_client, copy_prompt)
                     if res_copy:
                         st.session_state.saved_copy_result = res_copy
@@ -569,200 +502,3 @@ with main_tab3:
                     st.success("✅ '카피라이팅 보관함'에 저장되었습니다!")
             with col_cpbtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_copy_result, file_name="Copywriting.txt", use_container_width=True)
-
-# ==========================================
-# 📊 TAB 4: 마케팅 성과 & 음원 분석 대시보드
-# ==========================================
-with main_tab4:
-    st.markdown("### 📊 4. 마케팅 성과 & 음원 분석 대시보드")
-    
-    sub_dash1, sub_dash2, sub_dash3 = st.tabs([
-        "📄 4-1. 인게이지먼트 성과 장표 관리",
-        "🎵 4-2. 음원별 플랫폼 발행 수 카운팅",
-        "📈 4-3. 음원 사이트별 일자별 추이"
-    ])
-
-    with sub_dash1:
-        with st.expander("🔗 멀티 플랫폼(유튜브/인스타/틱톡) URL 또는 본문 텍스트 스마트 파싱 수집", expanded=True):
-            col_u1, col_u2 = st.columns([3, 1])
-            with col_u1:
-                auto_yt_url = st.text_area("영상 URL 또는 인스타/틱톡 공유 본문/수치 텍스트 입력", placeholder="예: https://www.youtube.com/shorts/... 또는\n인스타그램 릴스 홍보 / 85000회 / 좋아요 4200개 / Minty Beat 사용")
-            with col_u2:
-                st.write("")
-                st.write("")
-                btn_auto_fetch = st.button("🚀 AI 스마트 수집 실행", use_container_width=True, type="primary")
-
-            if btn_auto_fetch:
-                if auto_yt_url.strip():
-                    gemini_client = get_gemini_client()
-                    with st.spinner("AI가 멀티 플랫폼 데이터 수치 및 음원 정보를 파싱하는 중..."):
-                        if "youtube" in auto_yt_url.lower() or "youtu.be" in auto_yt_url.lower():
-                            auto_data = extract_auto_yt_data(auto_yt_url.strip())
-                        else:
-                            plat = "인스타그램 릴스" if ("instagram" in auto_yt_url.lower() or "릴스" in auto_yt_url) else ("틱톡" if "tiktok" in auto_yt_url.lower() else "유튜브 쇼츠")
-                            
-                            prompt_parse = f"""다음 텍스트에서 [콘텐츠 제목, 사용 음원, 조회수, 좋아요, 댓글] 수치를 추출해서 JSON 형식으로 정제하세요.
-                            텍스트: {auto_yt_url}
-                            
-                            응답 예시(반드시 숫자만):
-                            {{"title": "릴스 홍보 영상", "song": "추출 음원명", "views": 10000, "likes": 500, "comments": 30}}"""
-                            
-                            ai_res = safe_gemini_generate(gemini_client, prompt_parse) if gemini_client else None
-                            
-                            views, likes, comments, song_name = 10000, 500, 30, "사용자 지정 음원"
-                            if ai_res:
-                                try:
-                                    import json
-                                    match_json = re.search(r'\{.*\}', ai_res, re.DOTALL)
-                                    if match_json:
-                                        parsed = json.loads(match_json.group(0))
-                                        views = int(parsed.get("views", 10000))
-                                        likes = int(parsed.get("likes", 500))
-                                        comments = int(parsed.get("comments", 30))
-                                        song_name = parsed.get("song", "사용자 지정 음원")
-                                except Exception: pass
-
-                            auto_data = {
-                                "날짜": time.strftime("%Y-%m-%d"),
-                                "플랫폼": plat,
-                                "콘텐츠 제목": f"{plat} 홍보 콘텐츠",
-                                "사용 음원": song_name,
-                                "조회수": views, "좋아요": likes, "댓글": comments, "공유수": 0
-                            }
-                        
-                        new_df = pd.DataFrame([auto_data])
-                        st.session_state.analytics_data = pd.concat([st.session_state.analytics_data, new_df], ignore_index=True)
-                        st.success(f"✅ '{auto_data['콘텐츠 제목']}' 파싱 및 등록 완료!")
-
-        col_f1, col_f2 = st.columns([3, 1])
-        with col_f1:
-            with st.expander("➕ 수동 데이터 등록하기", expanded=False):
-                col_in1, col_in2, col_in3 = st.columns(3)
-                with col_in1:
-                    in_date = st.date_input("발행 날짜")
-                    in_platform = st.selectbox("플랫폼", ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"])
-                with col_in2:
-                    in_title = st.text_input("콘텐츠 제목")
-                    in_song = st.text_input("사용 음원명")
-                with col_in3:
-                    in_views = st.number_input("조회수", min_value=0, value=10000)
-                    in_likes = st.number_input("좋아요", min_value=0, value=500)
-                    in_comments = st.number_input("댓글", min_value=0, value=30)
-                    in_shares = st.number_input("공유수", min_value=0, value=50)
-
-                if st.button("✨ 수동 데이터 추가", use_container_width=True):
-                    new_row = pd.DataFrame([{
-                        "날짜": str(in_date), "플랫폼": in_platform,
-                        "콘텐츠 제목": in_title if in_title else "제목 없음",
-                        "사용 음원": in_song if in_song else "기본 음원",
-                        "조회수": in_views, "좋아요": in_likes, "댓글": in_comments, "공유수": in_shares
-                    }])
-                    st.session_state.analytics_data = pd.concat([st.session_state.analytics_data, new_row], ignore_index=True)
-                    st.success("✅ 수동 입력 데이터가 추가되었습니다!")
-                    st.rerun()
-
-        with col_f2:
-            st.markdown("##### 🗑️ 항목 관리")
-            if not st.session_state.analytics_data.empty:
-                del_target = st.selectbox("삭제할 콘텐츠 선택", st.session_state.analytics_data["콘텐츠 제목"].tolist())
-                if st.button("🗑️ 선택 항목 삭제하기", use_container_width=True):
-                    st.session_state.analytics_data = st.session_state.analytics_data[
-                        st.session_state.analytics_data["콘텐츠 제목"] != del_target
-                    ].reset_index(drop=True)
-                    st.warning(f"🗑️ '{del_target}' 항목이 삭제되었습니다.")
-                    st.rerun()
-
-        st.divider()
-
-        df = st.session_state.analytics_data.copy()
-        for c in ["조회수", "좋아요", "댓글", "공유수"]:
-            if c in df.columns:
-                df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).astype(int)
-
-        df["총 반응수"] = df["좋아요"] + df["댓글"] + df["공유수"]
-        df["인게이지먼트율(%)"] = df.apply(
-            lambda r: round((r["총 반응수"] / r["조회수"] * 100), 2) if r["조회수"] > 0 else 0.0, axis=1
-        )
-
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("총 콘텐츠 발행수", f"{len(df)}개")
-        m2.metric("누적 총 조회수", f"{int(df['조회수'].sum()):,}회")
-        m3.metric("누적 총 반응수", f"{int(df['총 반응수'].sum()):,}개")
-        avg_eng = df['인게이지먼트율(%)'].mean() if len(df) > 0 else 0
-        m4.metric("평균 인게이지먼트율", f"{avg_eng:.2f}%")
-
-        st.divider()
-
-        col_t_head, col_t_dl = st.columns([3, 1])
-        with col_t_head:
-            st.markdown("##### 📄 전체 콘텐츠 성과 장표")
-        with col_t_dl:
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='콘텐츠성과')
-            excel_data = output.getvalue()
-            
-            st.download_button(
-                label="📥 엑셀(.xlsx) 다운로드",
-                data=excel_data,
-                file_name="마케팅_콘텐츠_성과장표.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-
-        edited_df = st.data_editor(
-            df,
-            use_container_width=True,
-            num_rows="dynamic",
-            key="main_dashboard_editor"
-        )
-        st.session_state.analytics_data = edited_df
-
-    with sub_dash2:
-        st.markdown("#### 🎵 음원별 플랫폼 발행 수 자동 집계")
-        
-        current_data = st.session_state.analytics_data.copy()
-        
-        if not current_data.empty:
-            current_data["사용 음원"] = current_data["사용 음원"].astype(str).str.strip()
-            current_data["플랫폼"] = current_data["플랫폼"].astype(str).str.strip()
-            
-            current_data["플랫폼"] = current_data["플랫폼"].replace({
-                "유튜브": "유튜브 쇼츠",
-                "인스타그램": "인스타그램 릴스"
-            })
-            
-            valid_df = current_data[current_data["사용 음원"].notnull() & (current_data["사용 음원"] != "")]
-            
-            if not valid_df.empty:
-                music_counts = valid_df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
-                
-                for p in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
-                    if p not in music_counts.columns:
-                        music_counts[p] = 0
-                        
-                music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
-                music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
-                
-                st.dataframe(music_counts, use_container_width=True)
-            else:
-                st.info("등록된 음원 데이터가 없습니다.")
-        else:
-            st.info("등록된 데이터가 없습니다.")
-
-    with sub_dash3:
-        st.markdown("#### 📈 음원 사이트별 일자별 트렌드 추이")
-        current_data = st.session_state.analytics_data.copy()
-        valid_df = current_data[current_data["사용 음원"].notnull() & (current_data["사용 음원"] != "")]
-        
-        song_list = list(valid_df["사용 음원"].unique()) if not valid_df.empty else ["Minty Fresh Beat"]
-        selected_song = st.selectbox("분석할 음원 선택", song_list)
-
-        dates = pd.date_range(start="2026-08-25", periods=7, freq="D").strftime("%Y-%m-%d")
-        trend_df = pd.DataFrame({
-            "날짜": dates,
-            "유튜브 뮤직": [12000, 15400, 21000, 28000, 35000, 42000, 51000],
-            "멜론": [8500, 9200, 11500, 14200, 18900, 23000, 27500],
-            "스포티파이": [5400, 6800, 8900, 12000, 15800, 19500, 24000]
-        }).set_index("날짜")
-        st.line_chart(trend_df)
