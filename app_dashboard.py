@@ -13,7 +13,7 @@ st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", l
 
 default_secrets_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# 🎨 완전 다크 모드 스타일 고정
+# 🎨 다크 모드 스타일 고정
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -81,7 +81,7 @@ if "analytics_data" not in st.session_state:
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
 st.divider()
 
-# 🔑 사이드바 API
+# 🔑 사이드바 API 설정
 with st.sidebar:
     st.header("🔑 Gemini API 키 설정")
     
@@ -229,6 +229,7 @@ def get_youtube_info(url):
     except Exception:
         return {'url': url, 'title': '정보 수집 실패', 'views': 0, 'likes': 0, 'comments': 0, 'channel': 'N/A'}
 
+# 🎵 유튜브/인스타 오디오 메타데이터 정밀 역추적 함수
 def extract_auto_yt_data(url):
     ydl_opts = {
         'quiet': True,
@@ -275,7 +276,7 @@ def extract_auto_yt_data(url):
 
             return {
                 "날짜": time.strftime("%Y-%m-%d"),
-                "플랫폼": "유튜브 쇼츠" if "shorts" in url.lower() else "유튜브",
+                "플랫폼": "유튜브 쇼츠",
                 "콘텐츠 제목": video_title,
                 "사용 음원": final_song,
                 "조회수": int(info.get('view_count') or 0),
@@ -286,7 +287,7 @@ def extract_auto_yt_data(url):
     except Exception:
         return {
             "날짜": time.strftime("%Y-%m-%d"),
-            "플랫폼": "유튜브 쇼츠" if "shorts" in url.lower() else "유튜브",
+            "플랫폼": "유튜브 쇼츠",
             "콘텐츠 제목": f"URL 링크 영상 ({url[-11:]})",
             "사용 음원": "직접 수정 음원",
             "조회수": 0, "좋아요": 0, "댓글": 0, "공유수": 0
@@ -299,7 +300,7 @@ main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
     "📊 4. 마케팅 성과 & 음원 분석 대시보드"
 ])
 
-# (TAB 1~3 동일 유지)
+# (TAB 1~3 동일)
 with main_tab1:
     st.markdown("### 🎬 영상 제작용 AI 프롬프트 독립 생성")
     col_p1, col_p2 = st.columns([1, 1])
@@ -513,7 +514,7 @@ with main_tab3:
         with col_c1:
             copy_topic = st.text_input("카피라이팅 대상 제품/브랜드명", placeholder="예: 민트볼 틴케이스", key="copy_input_topic")
         with col_c2:
-            copy_channel = st.selectbox("게시 채널", ["인스타그램 릴스/포스터", "유튜브 숏폼/제목", "광고 헤드라인", "상세페이지 메인문구"], key="copy_input_channel")
+            copy_channel = st.selectbox("게시 채널", ["인스타그램 릴스/포스터", "유튜브 쇼츠/제목", "광고 헤드라인", "상세페이지 메인문구"], key="copy_input_channel")
         copy_detail = st.text_area("강조하고 싶은 소구점/혜택", placeholder="예: 한 손에 쏙 들어오는 휴대성, 강력한 상쾌함", height=100, key="copy_input_detail")
         
         if st.button("✍️ 마케팅 카피라이팅 문구 추출 실행", type="primary", use_container_width=True):
@@ -553,34 +554,58 @@ with main_tab4:
     ])
 
     with sub_dash1:
-        # 유튜브 URL 자동 수집 및 파싱 보완
-        with st.expander("🔗 멀티 플랫폼(유튜브/인스타/틱톡) URL 성과 자동 수집하기", expanded=True):
+        # 🤖 Gemini 스마트 파싱 통합 수집 섹션
+        with st.expander("🔗 멀티 플랫폼(유튜브/인스타/틱톡) URL 또는 본문 텍스트 스마트 파싱 수집", expanded=True):
             col_u1, col_u2 = st.columns([3, 1])
             with col_u1:
-                auto_yt_url = st.text_input("유튜브/인스타/틱톡 링크 입력", placeholder="https://www.youtube.com/shorts/...")
+                auto_yt_url = st.text_area("영상 URL 또는 인스타/틱톡 공유 본문/수치 텍스트 입력", placeholder="예: https://www.youtube.com/shorts/... 또는\n인스타그램 릴스 홍보 / 85000회 / 좋아요 4200개 / Minty Beat 사용")
             with col_u2:
                 st.write("")
                 st.write("")
-                btn_auto_fetch = st.button("🚀 URL 자동 등록", use_container_width=True, type="primary")
+                btn_auto_fetch = st.button("🚀 AI 스마트 수집 실행", use_container_width=True, type="primary")
 
             if btn_auto_fetch:
                 if auto_yt_url.strip():
-                    with st.spinner("성과 데이터 자동 수집 및 수식 계산 중..."):
+                    gemini_client = get_gemini_client()
+                    with st.spinner("AI가 멀티 플랫폼 데이터 수치 및 음원 정보를 파싱하는 중..."):
                         if "youtube" in auto_yt_url.lower() or "youtu.be" in auto_yt_url.lower():
                             auto_data = extract_auto_yt_data(auto_yt_url.strip())
                         else:
-                            plat = "인스타그램 릴스" if "instagram" in auto_yt_url.lower() else ("틱톡" if "tiktok" in auto_yt_url.lower() else "숏폼")
+                            # 인스타 / 틱톡 복사 텍스트를 Gemini AI가 스마트하게 구분
+                            plat = "인스타그램 릴스" if ("instagram" in auto_yt_url.lower() or "릴스" in auto_yt_url) else ("틱톡" if "tiktok" in auto_yt_url.lower() else "유튜브 쇼츠")
+                            
+                            prompt_parse = f"""다음 텍스트에서 [콘텐츠 제목, 사용 음원, 조회수, 좋아요, 댓글] 수치를 추출해서 JSON 형식으로 정제하세요.
+                            텍스트: {auto_yt_url}
+                            
+                            응답 예시(반드시 숫자만):
+                            {{"title": "릴스 홍보 영상", "song": "추출 음원명", "views": 10000, "likes": 500, "comments": 30}}"""
+                            
+                            ai_res = safe_gemini_generate(gemini_client, prompt_parse) if gemini_client else None
+                            
+                            views, likes, comments, song_name = 10000, 500, 30, "사용자 지정 음원"
+                            if ai_res:
+                                try:
+                                    import json
+                                    match_json = re.search(r'\{.*\}', ai_res, re.DOTALL)
+                                    if match_json:
+                                        parsed = json.loads(match_json.group(0))
+                                        views = int(parsed.get("views", 10000))
+                                        likes = int(parsed.get("likes", 500))
+                                        comments = int(parsed.get("comments", 30))
+                                        song_name = parsed.get("song", "사용자 지정 음원")
+                                except Exception: pass
+
                             auto_data = {
                                 "날짜": time.strftime("%Y-%m-%d"),
                                 "플랫폼": plat,
-                                "콘텐츠 제목": f"{plat} 홍보 영상",
-                                "사용 음원": "사용자 지정 음원",
-                                "조회수": 10000, "좋아요": 500, "댓글": 30, "공유수": 10
+                                "콘텐츠 제목": f"{plat} 홍보 콘텐츠",
+                                "사용 음원": song_name,
+                                "조회수": views, "좋아요": likes, "댓글": comments, "공유수": 0
                             }
                         
                         new_df = pd.DataFrame([auto_data])
                         st.session_state.analytics_data = pd.concat([st.session_state.analytics_data, new_df], ignore_index=True)
-                        st.success(f"✅ '{auto_data['콘텐츠 제목']}' 처리 완료!")
+                        st.success(f"✅ '{auto_data['콘텐츠 제목']}' 파싱 및 등록 완료!")
 
         col_f1, col_f2 = st.columns([3, 1])
         with col_f1:
@@ -622,7 +647,6 @@ with main_tab4:
 
         st.divider()
 
-        # ⚡ 수식 연동 파트 보완 (숫자 변환 및 인게이지먼트율 자동 계산)
         df = st.session_state.analytics_data.copy()
         for c in ["조회수", "좋아요", "댓글", "공유수"]:
             if c in df.columns:
@@ -667,28 +691,40 @@ with main_tab4:
         )
         st.session_state.analytics_data = edited_df
 
-    # 4-2 서브 탭: 실시간 세션 데이터 기준 카운팅
+    # 4-2 서브 탭: 실시간 집계 보정 (0 이슈 완벽 보완)
     with sub_dash2:
         st.markdown("#### 🎵 음원별 플랫폼 발행 수 자동 집계")
         
         current_data = st.session_state.analytics_data.copy()
-        valid_df = current_data[current_data["사용 음원"].notnull() & (current_data["사용 음원"] != "")]
         
-        if not valid_df.empty:
-            music_counts = valid_df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
+        if not current_data.empty:
+            current_data["사용 음원"] = current_data["사용 음원"].astype(str).str.strip()
+            current_data["플랫폼"] = current_data["플랫폼"].astype(str).str.strip()
             
-            for p in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
-                if p not in music_counts.columns:
-                    music_counts[p] = 0
-                    
-            music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
-            music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
+            current_data["플랫폼"] = current_data["플랫폼"].replace({
+                "유튜브": "유튜브 쇼츠",
+                "인스타그램": "인스타그램 릴스"
+            })
             
-            st.dataframe(music_counts, use_container_width=True)
+            valid_df = current_data[current_data["사용 음원"].notnull() & (current_data["사용 음원"] != "")]
+            
+            if not valid_df.empty:
+                music_counts = valid_df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
+                
+                for p in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
+                    if p not in music_counts.columns:
+                        music_counts[p] = 0
+                        
+                music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
+                music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
+                
+                st.dataframe(music_counts, use_container_width=True)
+            else:
+                st.info("등록된 음원 데이터가 없습니다.")
         else:
             st.info("등록된 데이터가 없습니다.")
 
-    # 4-3 서브 탭: 실시간 세션 기준 음원 트렌드
+    # 4-3 서브 탭: 추이 차트
     with sub_dash3:
         st.markdown("#### 📈 음원 사이트별 일자별 트렌드 추이")
         current_data = st.session_state.analytics_data.copy()
