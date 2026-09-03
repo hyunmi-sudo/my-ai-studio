@@ -1,8 +1,57 @@
 import streamlit as st
 import pandas as pd
 import io
+import re
+from google import genai
 
 st.set_page_config(page_title="음원 & 콘텐츠 마케팅 성과 대시보드 Pro", layout="wide", page_icon="🎵")
+
+# 사이드바 및 UI 스타일 보완 (다크 글자색 고정)
+st.markdown("""
+    <style>
+    html, body, [data-testid="stAppViewContainer"], .stApp {
+        background-color: #F8FAFC !important;
+        color: #0F172A !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #F1F5F9 !important;
+        border-right: 1px solid #E2E8F0 !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: #0F172A !important;
+    }
+    div[data-testid="stAlert"] * {
+        color: #0F172A !important;
+        font-weight: 600 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 기본 Secrets API 키
+default_secrets_key = st.secrets.get("GEMINI_API_KEY", "")
+
+# 🔑 사이드바 사용자 지정 API 키 설정 영역
+with st.sidebar:
+    st.header("🔑 Gemini API 키 설정")
+    user_api_key = st.text_input(
+        "개인 Gemini API 키 입력", 
+        type="password", 
+        placeholder="AIzaSy...",
+        help="다른 사용자의 개인 API 키를 입력하면 공용 키 대신 지정된 키로 분석이 진행됩니다."
+    )
+    
+    # 입력된 키가 있으면 사용자 키 사용, 없으면 Secrets 기본 키 사용
+    active_api_key = user_api_key.strip() if user_api_key.strip() else default_secrets_key.strip()
+    
+    if active_api_key:
+        if user_api_key.strip():
+            st.success("✅ 사용자 지정 API 키 연결 완료")
+        else:
+            st.success("✅ 기본 공유 API 키 연결 완료")
+    else:
+        st.warning("⚠️ 등록된 API 키가 없습니다. 키를 입력해 주세요.")
+        
+    st.markdown("---")
 
 st.title("📊 음원 & 콘텐츠 마케팅 성과 분석 대시보드")
 st.caption("발행된 숏폼 콘텐츠의 인게이지먼트와 음원 플랫폼별 스트리밍 추이를 실시간 집계합니다.")
