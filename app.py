@@ -82,16 +82,16 @@ with st.sidebar:
         "개인 Gemini API 키 입력", 
         type="password", 
         placeholder="AIzaSy...",
-        help="Secrets 키 한도 초과 시 개인 API 키를 입력하면 우선 적용됩니다."
+        help="공유 키 트래픽 폭주 시 개인 API 키를 입력하시면 대기 없이 즉시 생성됩니다."
     )
     
     active_gemini_key = user_gemini_key.strip() if user_gemini_key.strip() else default_secrets_key.strip()
     
     if active_gemini_key:
         if user_gemini_key.strip():
-            st.success("✅ 사용자 지정 API 키 연결 완료")
+            st.success("✅ 사용자 지정 개인 API 키 연결 완료 (우선 처리)")
         else:
-            st.success("✅ 기본 공유 API 키 연결 완료")
+            st.info("ℹ️ 기본 공유 API 키 연결 중")
     else:
         st.warning("⚠️ API 키가 입력되지 않았습니다.")
         
@@ -165,7 +165,7 @@ with st.sidebar:
 
 def get_gemini_client():
     if not active_gemini_key:
-        st.error("⚠️ 사용할 Gemini API 키가 없습니다. 개인 키를 입력해 주세요.")
+        st.error("⚠️ 사용할 Gemini API 키가 없습니다. 사이드바에 개인 키를 입력해 주세요.")
         return None
     try:
         return genai.Client(api_key=active_gemini_key)
@@ -173,10 +173,9 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 503 서버 과부하 대응: 최대 3회 백오프 자동 재시도 함수
-def safe_gemini_generate(client, contents_input, max_retries=3):
-    last_error = ""
-    for attempt in range(max_retries):
+# 🛡️ 트래픽 503 회피용 스마트 재시도 핸들러
+def safe_gemini_generate(client, contents_input):
+    for attempt in range(3):
         try:
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
@@ -185,13 +184,14 @@ def safe_gemini_generate(client, contents_input, max_retries=3):
             if response and response.text:
                 return response.text
         except Exception as e:
-            last_error = str(e)
-            if "503" in last_error or "UNAVAILABLE" in last_error:
-                time.sleep(1.5 * (attempt + 1))  # 백오프 대기
+            err_msg = str(e)
+            if "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
+                time.sleep(2 * (attempt + 1))
                 continue
-            break
-            
-    st.error(f"⚠️ 구글 서버 트래픽이 지연되고 있습니다. 1~2초 후 다시 [생성 실행] 버튼을 눌러주세요. ({last_error})")
+            else:
+                st.error(f"⚠️ API 호출 오류: {err_msg}")
+                return None
+    st.error("⚠️ 공유 API 키 트래픽이 많아 응답이 지연되었습니다. 개인 Gemini API 키를 등록하면 대기 없이 바로 동작합니다.")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
