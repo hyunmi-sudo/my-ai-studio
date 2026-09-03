@@ -174,8 +174,9 @@ def get_gemini_client():
         return None
 
 def safe_gemini_generate(client, contents_input):
-    # 503 UNAVAILABLE 방지 우회 로직 추가
+    # 정식 최신 모델명 매핑 적용
     models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash']
+    last_error = ""
     for m in models_to_try:
         try:
             response = client.models.generate_content(
@@ -184,9 +185,10 @@ def safe_gemini_generate(client, contents_input):
             )
             if response and response.text:
                 return response.text
-        except Exception:
+        except Exception as e:
+            last_error = str(e)
             continue
-    st.error("⚠️ 서버 트래픽 폭주로 생성이 잠시 지연되었습니다. 잠시 후 다시 시도해 주세요.")
+    st.error(f"⚠️ API 생성 요망 오류: {last_error if last_error else '키 한도 초과 또는 네트워크 오류'}")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -249,7 +251,7 @@ with main_tab1:
         gemini_client = get_gemini_client()
         if p_topic and p_detail and gemini_client:
             with st.spinner("프롬프트 생성 중..."):
-                prompt_req = f"주제: {p_topic}, 포맷: {p_style}, 톤: {p_tone}, 내용: {p_detail} 바탕으로 전문 프롬프트를 작성하세요."
+                prompt_req = f"주제: {p_topic}, 포맷: {p_style}, 톤: {p_tone}, 내용: {p_detail} 바탕으로 전문 프롬프트를 한국어로 작성하세요."
                 res = generate_claude_or_gemini(prompt_req, gemini_client)
                 if res:
                     st.session_state.saved_prompt_result = res
@@ -287,7 +289,7 @@ with main_tab2:
         gemini_client = get_gemini_client()
         if g_title and g_goal and gemini_client:
             with st.spinner("촬영계획서 작성 중..."):
-                plan_req = f"프로젝트명: {g_title}, 타겟: {g_target}, 장소: {g_location}, 내용: {g_goal} 바탕으로 촬영계획서를 작성하세요."
+                plan_req = f"프로젝트명: {g_title}, 타겟: {g_target}, 장소: {g_location}, 내용: {g_goal} 바탕으로 촬영계획서를 한국어로 작성하세요."
                 res_pl = safe_gemini_generate(gemini_client, plan_req)
                 if res_pl:
                     st.session_state.saved_plan_result = res_pl
@@ -357,7 +359,6 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
-    # 📸 2. 제품 이미지 분석 & AI 썸네일/프롬프트 생성기 (한국어 보장)
     with tab_img:
         st.markdown("#### 📸 제품 이미지 기반 시각 분석 & AI 썸네일/프롬프트 기획")
         col_img1, col_img2 = st.columns([1, 1])
