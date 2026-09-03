@@ -13,42 +13,54 @@ st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", l
 # 기본 Secrets API 키
 default_secrets_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# 🎨 사이드바 및 화면 전체 스타일 (다크/라이트 모드 무관 고대비 라이트 테마 강제 고정)
+# 🎨 완전 다크 모드 스타일 고정 (고대비 가독성 보장)
 st.markdown("""
     <style>
-    /* 전체 배경 및 메인 글자색 */
+    /* 전체 메인 배경 및 기본 글자색 (어두운 테마) */
     html, body, [data-testid="stAppViewContainer"], .stApp {
-        background-color: #F8FAFC !important;
-        color: #0F172A !important;
+        background-color: #0F172A !important;
+        color: #F8FAFC !important;
     }
     
-    /* 사이드바 배경 및 내부 글자색 강제 보정 */
+    /* 사이드바 배경 및 내부 글자색 */
     [data-testid="stSidebar"] {
-        background-color: #FFFFFF !important;
-        border-right: 1px solid #CBD5E1 !important;
+        background-color: #1E293B !important;
+        border-right: 1px solid #334155 !important;
     }
     [data-testid="stSidebar"] * {
-        color: #0F172A !important;
+        color: #F8FAFC !important;
     }
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label {
-        color: #0F172A !important;
-        font-weight: 800 !important;
-    }
-    
-    /* 경고/성공 알림 박스 내 글자색 강제 보정 */
-    div[data-testid="stAlert"] * {
-        color: #0F172A !important;
+        color: #F8FAFC !important;
         font-weight: 700 !important;
     }
     
-    /* 입력창 및 셀렉트박스 백그라운드 밝게 고정 */
+    /* 메인 화면 텍스트 및 라벨 */
+    h1, h2, h3, h4, h5, h6, label, p, span, div {
+        color: #F8FAFC !important;
+    }
+    
+    /* 입력창 및 셀렉트박스 다크 모드 가독성 패치 */
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
-        background-color: #FFFFFF !important;
-        border-color: #94A3B8 !important;
-        color: #0F172A !important;
+        background-color: #1E293B !important;
+        border-color: #475569 !important;
+        color: #F8FAFC !important;
     }
     div[data-baseweb="input"] input {
+        color: #F8FAFC !important;
+    }
+    
+    /* 데이터 에디터 및 표 선명한 다크 모드 */
+    div[data-testid="stDataEditor"], .stDataFrame {
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+    }
+    
+    /* 성공/경고 알림 박스 다크 텍스트 대응 */
+    div[data-testid="stAlert"] * {
         color: #0F172A !important;
+        font-weight: 700 !important;
     }
     </style>
 """, unsafe_allow_html=True)
