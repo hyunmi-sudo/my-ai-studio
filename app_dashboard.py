@@ -10,10 +10,10 @@ from PIL import Image
 
 st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide", page_icon="⚡")
 
-# 기본 Secrets API 키
-saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
+# 백업용 서버 공유 API 키 (서브 연결)
+server_backup_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# 💾 카테고리 저장소 및 결과 세션 초기화
+# 💾 카테고리 저장소 및 세션 초기화
 default_items = {
     "prompts": [], "plans": [], "yt_diag": [], 
     "img_analysis": [], "influencer": [], "calendar": [], "copywriting": []
@@ -46,19 +46,24 @@ if "analytics_data" not in st.session_state:
     ])
 
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
-st.caption("결과물 확인 후 원하는 제목을 지정하여 카테고리별 저장소에 보관할 수 있습니다.")
+st.caption("개인 API 키 우선 연결 모드: 사용자 키를 최우선 적용하며, 미입력 시 시스템 백업 키로 자동 작동합니다.")
 st.divider()
 
-# 🔑 사이드바 API 설정 & 카테고리별 보관함
+# 🔑 사이드바: 개인 API 우선 사용 & 보관함
 with st.sidebar:
-    st.header("🔑 API 설정")
-    user_gemini_key = st.text_input("개인 Gemini API 키 입력", type="password", placeholder="AIzaSy...")
-    active_gemini_key = user_gemini_key.strip() if user_gemini_key.strip() else saved_gemini_key.strip()
+    st.header("🔑 메인 API 연결")
+    user_gemini_key = st.text_input("개인 Gemini API Key (우선 적용)", type="password", placeholder="AIzaSy...")
     
-    if active_gemini_key:
-        st.success("✅ Gemini API 연결 완료")
+    # 개인 API 키 존재 시 1순위 사용, 없을 시 시스템 백업 키를 2순위로 사용
+    if user_gemini_key.strip():
+        active_gemini_key = user_gemini_key.strip()
+        st.success("👑 [메인] 개인 Gemini API 키 적용 중")
+    elif server_backup_key.strip():
+        active_gemini_key = server_backup_key.strip()
+        st.info("🛡️ [서브] 시스템 백업 API 키 적용 중")
     else:
-        st.warning("⚠️ 등록된 API 키가 없습니다.")
+        active_gemini_key = ""
+        st.warning("⚠️ 사용 가능한 API 키가 없습니다.")
         
     claude_key = st.text_input("Anthropic Claude API Key (선택)", type="password")
 
@@ -130,12 +135,12 @@ with st.sidebar:
 
 def get_gemini_client():
     if not active_gemini_key:
-        st.error("⚠️ API 키를 입력해 주세요.")
+        st.error("⚠️ API 키가 설정되지 않았습니다. 개인 Gemini API 키를 입력해 주세요.")
         return None
     try:
         return genai.Client(api_key=active_gemini_key)
     except Exception as e:
-        st.error(f"클라이언트 오류: {e}")
+        st.error(f"Gemini 초기화 오류: {e}")
         return None
 
 def safe_gemini_generate(client, contents_input):
@@ -147,7 +152,7 @@ def safe_gemini_generate(client, contents_input):
         if response and response.text:
             return response.text
     except Exception as e:
-        st.error(f"⚠️ API 생성 오류: {e}")
+        st.error(f"⚠️ API 요청 실패: {e}")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -184,7 +189,6 @@ def get_youtube_info(url):
             'channel': info.get('uploader') or 'N/A'
         }
 
-# 대제목 4번 추가하여 메인 탭 개편
 main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
     "🎬 1. 영상 제작 전용 AI 프롬프트 생성기", 
     "📄 2. 영상 종합 기획서 & 촬영계획서 작성기",
@@ -208,7 +212,7 @@ with main_tab1:
     if st.button("🚀 영상 제작용 프롬프트 생성 실행", type="primary", use_container_width=True):
         gemini_client = get_gemini_client()
         if p_topic and p_detail and gemini_client:
-            with st.spinner("프롬프트 생성 중..."):
+            with st.spinner("개인 API로 프롬프트 생성 중..."):
                 prompt_req = f"주제: {p_topic}, 포맷: {p_style}, 톤: {p_tone}, 내용: {p_detail} 바탕으로 전문 프롬프트를 작성하세요."
                 res = generate_claude_or_gemini(prompt_req, gemini_client)
                 if res:
@@ -283,7 +287,6 @@ with main_tab3:
         "✍️ 마케팅 카피라이팅 추출기"
     ])
 
-    # 1. 🎥 유튜브 성과 진단
     with tab_yt_std:
         st.markdown("#### 🎥 유튜브 영상 URL 입력 진단")
         standalone_urls = st.text_area("유튜브 URL 목록 (한 줄에 하나씩)", height=100)
@@ -321,7 +324,6 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
-    # 2. 📸 제품 사진 기반 AI 이미지 분석
     with tab_img:
         st.markdown("#### 📸 제품 이미지 시각 특징 분석")
         col_img1, col_img2 = st.columns([1, 1])
@@ -357,7 +359,6 @@ with main_tab3:
             with col_ibtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_img_result, file_name="Image_Analysis.txt", use_container_width=True)
 
-    # 3. 👥 키워드 기반 인플루언서 탐색
     with tab_inf:
         st.markdown("#### 👥 타겟 키워드 기반 인플루언서 매칭")
         col_inf1, col_inf2 = st.columns([2, 1])
@@ -388,7 +389,6 @@ with main_tab3:
             with col_infbtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_inf_result, file_name="Influencer_Matching.txt", use_container_width=True)
 
-    # 4. 📅 30일 콘텐츠 달력 생성기
     with tab_cal:
         st.markdown("#### 📅 30일 콘텐츠 마케팅 달력 생성")
         plan_cal_topic = st.text_input("달력 제작할 브랜드/제품 및 목표", placeholder="예: 신제품 텀블러 와디즈 펀딩 30일 캠페인", key="cal_input_topic")
@@ -416,7 +416,6 @@ with main_tab3:
             with col_cbtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_cal_result, file_name="Content_Calendar.txt", use_container_width=True)
 
-    # 5. ✍️ 마케팅 카피라이팅 추출기
     with tab_copy:
         st.markdown("#### ✍️ 마케팅 카피라이팅 문구 추출")
         col_c1, col_c2 = st.columns([2, 1])
@@ -452,121 +451,137 @@ with main_tab3:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_copy_result, file_name="Copywriting.txt", use_container_width=True)
 
 # ==========================================
-# 📊 TAB 4: 마케팅 성과 & 음원 분석 대시보드 (대제목 4번 독립 추가)
+# 📊 TAB 4: 마케팅 성과 & 음원 분석 대시보드 (서브 분리 및 대제목 4번)
 # ==========================================
 with main_tab4:
-    st.markdown("### 📊 마케팅 성과 & 음원 분석 대시보드")
+    st.markdown("### 📊 4. 마케팅 성과 & 음원 분석 대시보드")
+    st.caption("독립 대시보드 영역: 등록, 수정, 삭제 데이터를 하단 집계 및 추이 차트로 실시간 연동합니다.")
     
-    col_f1, col_f2 = st.columns([3, 1])
-    with col_f1:
-        with st.expander("➕ 새 콘텐츠 성과 데이터 등록하기", expanded=True):
-            col_in1, col_in2, col_in3 = st.columns(3)
-            with col_in1:
-                in_date = st.date_input("발행 날짜")
-                in_platform = st.selectbox("플랫폼", ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"])
-            with col_in2:
-                in_title = st.text_input("콘텐츠 제목", placeholder="예: 상쾌함 반응 챌린지")
-                in_song = st.text_input("사용 음원명", placeholder="예: My Custom Beat")
-            with col_in3:
-                in_views = st.number_input("조회수", min_value=0, value=10000)
-                in_likes = st.number_input("좋아요", min_value=0, value=500)
-                in_comments = st.number_input("댓글", min_value=0, value=30)
-                in_shares = st.number_input("공유수", min_value=0, value=50)
+    sub_dash1, sub_dash2, sub_dash3 = st.tabs([
+        "📄 4-1. 인게이지먼트 성과 장표 관리",
+        "🎵 4-2. 음원별 플랫폼 발행 수 카운팅",
+        "📈 4-3. 음원 사이트별 일자별 추이"
+    ])
 
-            if st.button("✨ 데이터 목록에 즉시 추가하기", use_container_width=True, type="primary"):
-                new_row = pd.DataFrame([{
-                    "날짜": str(in_date),
-                    "플랫폼": in_platform,
-                    "콘텐츠 제목": in_title if in_title else "제목 없음",
-                    "사용 음원": in_song if in_song else "기본 음원",
-                    "조회수": in_views,
-                    "좋아요": in_likes,
-                    "댓글": in_comments,
-                    "공유수": in_shares
-                }])
-                st.session_state.analytics_data = pd.concat([st.session_state.analytics_data, new_row], ignore_index=True)
-                st.success(f"✅ '{in_title}' 콘텐츠가 추가되었습니다!")
+    # 서브 탭 4-1: 장표 관리 및 추가/삭제
+    with sub_dash1:
+        col_f1, col_f2 = st.columns([3, 1])
+        with col_f1:
+            with st.expander("➕ 새 콘텐츠 성과 데이터 등록하기", expanded=True):
+                col_in1, col_in2, col_in3 = st.columns(3)
+                with col_in1:
+                    in_date = st.date_input("발행 날짜")
+                    in_platform = st.selectbox("플랫폼", ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"])
+                with col_in2:
+                    in_title = st.text_input("콘텐츠 제목", placeholder="예: 상쾌함 반응 챌린지")
+                    in_song = st.text_input("사용 음원명", placeholder="예: My Custom Beat")
+                with col_in3:
+                    in_views = st.number_input("조회수", min_value=0, value=10000)
+                    in_likes = st.number_input("좋아요", min_value=0, value=500)
+                    in_comments = st.number_input("댓글", min_value=0, value=30)
+                    in_shares = st.number_input("공유수", min_value=0, value=50)
 
-    with col_f2:
-        st.markdown("##### 🗑️ 항목 관리")
-        if not st.session_state.analytics_data.empty:
-            del_target = st.selectbox("삭제할 콘텐츠 선택", st.session_state.analytics_data["콘텐츠 제목"].tolist())
-            if st.button("🗑️ 선택 항목 삭제하기", use_container_width=True):
-                st.session_state.analytics_data = st.session_state.analytics_data[
-                    st.session_state.analytics_data["콘텐츠 제목"] != del_target
-                ].reset_index(drop=True)
-                st.warning(f"🗑️ '{del_target}' 항목이 삭제되었습니다.")
-                st.rerun()
+                if st.button("✨ 데이터 목록에 즉시 추가하기", use_container_width=True, type="primary"):
+                    new_row = pd.DataFrame([{
+                        "날짜": str(in_date),
+                        "플랫폼": in_platform,
+                        "콘텐츠 제목": in_title if in_title else "제목 없음",
+                        "사용 음원": in_song if in_song else "기본 음원",
+                        "조회수": in_views,
+                        "좋아요": in_likes,
+                        "댓글": in_comments,
+                        "공유수": in_shares
+                    }])
+                    st.session_state.analytics_data = pd.concat([st.session_state.analytics_data, new_row], ignore_index=True)
+                    st.success(f"✅ '{in_title}' 콘텐츠가 추가되었습니다!")
 
-    st.divider()
+        with col_f2:
+            st.markdown("##### 🗑️ 항목 관리")
+            if not st.session_state.analytics_data.empty:
+                del_target = st.selectbox("삭제할 콘텐츠 선택", st.session_state.analytics_data["콘텐츠 제목"].tolist())
+                if st.button("🗑️ 선택 항목 삭제하기", use_container_width=True):
+                    st.session_state.analytics_data = st.session_state.analytics_data[
+                        st.session_state.analytics_data["콘텐츠 제목"] != del_target
+                    ].reset_index(drop=True)
+                    st.warning(f"🗑️ '{del_target}' 항목이 삭제되었습니다.")
+                    st.rerun()
 
-    df = st.session_state.analytics_data.copy()
-    for c in ["조회수", "좋아요", "댓글", "공유수"]:
-        df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+        st.divider()
 
-    df["총 반응수"] = df["좋아요"] + df["댓글"] + df["공유수"]
-    df["인게이지먼트율(%)"] = df.apply(
-        lambda r: round((r["총 반응수"] / r["조회수"] * 100), 2) if r["조회수"] > 0 else 0.0, axis=1
-    )
+        df = st.session_state.analytics_data.copy()
+        for c in ["조회수", "좋아요", "댓글", "공유수"]:
+            df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("총 콘텐츠 발행수", f"{len(df)}개")
-    m2.metric("누적 총 조회수", f"{int(df['조회수'].sum()):,}회")
-    m3.metric("누적 총 반응수", f"{int(df['총 반응수'].sum()):,}개")
-    avg_eng = df['인게이지먼트율(%)'].mean() if len(df) > 0 else 0
-    m4.metric("평균 인게이지먼트율", f"{avg_eng:.2f}%")
-
-    st.divider()
-
-    col_t_head, col_t_dl = st.columns([3, 1])
-    with col_t_head:
-        st.markdown("##### 📄 통합 인게이지먼트 성과 장표")
-    with col_t_dl:
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='콘텐츠성과')
-        excel_data = output.getvalue()
-        
-        st.download_button(
-            label="📥 엑셀(.xlsx) 다운로드",
-            data=excel_data,
-            file_name="마케팅_콘텐츠_성과장표.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+        df["총 반응수"] = df["좋아요"] + df["댓글"] + df["공유수"]
+        df["인게이지먼트율(%)"] = df.apply(
+            lambda r: round((r["총 반응수"] / r["조회수"] * 100), 2) if r["조회수"] > 0 else 0.0, axis=1
         )
 
-    edited_df = st.data_editor(
-        df,
-        use_container_width=True,
-        num_rows="dynamic",
-        key="main_dashboard_editor"
-    )
-    st.session_state.analytics_data = edited_df
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("총 콘텐츠 발행수", f"{len(df)}개")
+        m2.metric("누적 총 조회수", f"{int(df['조회수'].sum()):,}회")
+        m3.metric("누적 총 반응수", f"{int(df['총 반응수'].sum()):,}개")
+        avg_eng = df['인게이지먼트율(%)'].mean() if len(df) > 0 else 0
+        m4.metric("평균 인게이지먼트율", f"{avg_eng:.2f}%")
 
-    st.divider()
+        st.divider()
 
-    st.markdown("#### 🎵 음원별 플랫폼 발행 수 자동 집계")
-    valid_df = edited_df[edited_df["사용 음원"].notnull() & (edited_df["사용 음원"] != "")]
-    if not valid_df.empty:
-        music_counts = valid_df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
-        for p in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
-            if p not in music_counts.columns:
-                music_counts[p] = 0
-        music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
-        music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
-        st.dataframe(music_counts, use_container_width=True)
+        col_t_head, col_t_dl = st.columns([3, 1])
+        with col_t_head:
+            st.markdown("##### 📄 전체 콘텐츠 성과 장표")
+        with col_t_dl:
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='콘텐츠성과')
+            excel_data = output.getvalue()
+            
+            st.download_button(
+                label="📥 엑셀(.xlsx) 다운로드",
+                data=excel_data,
+                file_name="마케팅_콘텐츠_성과장표.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
 
-    st.divider()
+        edited_df = st.data_editor(
+            df,
+            use_container_width=True,
+            num_rows="dynamic",
+            key="main_dashboard_editor"
+        )
+        st.session_state.analytics_data = edited_df
 
-    st.markdown("#### 📈 음원 사이트별 일자별 트렌드 추이")
-    song_list = list(valid_df["사용 음원"].unique()) if not valid_df.empty else ["Minty Fresh Beat"]
-    selected_song = st.selectbox("분석할 음원 선택", song_list)
+    # 서브 탭 4-2: 플랫폼별 음원 카운팅
+    with sub_dash2:
+        st.markdown("#### 🎵 음원별 플랫폼 발행 수 자동 집계")
+        valid_df = st.session_state.analytics_data[
+            st.session_state.analytics_data["사용 음원"].notnull() & (st.session_state.analytics_data["사용 음원"] != "")
+        ]
+        if not valid_df.empty:
+            music_counts = valid_df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
+            for p in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
+                if p not in music_counts.columns:
+                    music_counts[p] = 0
+            music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
+            music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
+            st.dataframe(music_counts, use_container_width=True)
+        else:
+            st.info("등록된 데이터가 없습니다.")
 
-    dates = pd.date_range(start="2026-08-25", periods=7, freq="D").strftime("%Y-%m-%d")
-    trend_df = pd.DataFrame({
-        "날짜": dates,
-        "유튜브 뮤직": [12000, 15400, 21000, 28000, 35000, 42000, 51000],
-        "멜론": [8500, 9200, 11500, 14200, 18900, 23000, 27500],
-        "스포티파이": [5400, 6800, 8900, 12000, 15800, 19500, 24000]
-    }).set_index("날짜")
-    st.line_chart(trend_df)
+    # 서브 탭 4-3: 음원 사이트 추이
+    with sub_dash3:
+        st.markdown("#### 📈 음원 사이트별 일자별 트렌드 추이")
+        valid_df = st.session_state.analytics_data[
+            st.session_state.analytics_data["사용 음원"].notnull() & (st.session_state.analytics_data["사용 음원"] != "")
+        ]
+        song_list = list(valid_df["사용 음원"].unique()) if not valid_df.empty else ["Minty Fresh Beat"]
+        selected_song = st.selectbox("분석할 음원 선택", song_list)
+
+        dates = pd.date_range(start="2026-08-25", periods=7, freq="D").strftime("%Y-%m-%d")
+        trend_df = pd.DataFrame({
+            "날짜": dates,
+            "유튜브 뮤직": [12000, 15400, 21000, 28000, 35000, 42000, 51000],
+            "멜론": [8500, 9200, 11500, 14200, 18900, 23000, 27500],
+            "스포티파이": [5400, 6800, 8900, 12000, 15800, 19500, 24000]
+        }).set_index("날짜")
+        st.line_chart(trend_df)
