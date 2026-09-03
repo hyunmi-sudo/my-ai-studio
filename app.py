@@ -173,11 +173,11 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 최신 google-genai 정식 모델 단일화
+# 🛡️ 최신 gemini-3.6-flash 정적 모델 적용
 def safe_gemini_generate(client, contents_input):
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=contents_input
         )
         if response and response.text:
