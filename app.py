@@ -2,6 +2,7 @@ import os
 import io
 import time
 import re
+import tempfile
 import streamlit as st
 from google import genai
 import anthropic
@@ -127,7 +128,7 @@ with st.sidebar:
                 st.markdown("---")
         else: st.caption("저장된 진단 리포트가 없습니다.")
 
-    with st.expander("📸 이미지 분석 보관함", expanded=False):
+    with st.expander("📸 시각적 미디어 분석 보관함", expanded=False):
         if st.session_state.saved_items.get("img_analysis"):
             for idx, item in enumerate(st.session_state.saved_items["img_analysis"], 1):
                 st.markdown(f"**📌 {item['title']}**")
@@ -173,7 +174,7 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 503 서버 과부하 자동 전환 우회 핸들러
+# 🛡️ 503 과부하 자동 전환 우회 핸들러
 def safe_gemini_generate(client, contents_input):
     models_to_try = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash']
     last_error = ""
@@ -193,12 +194,12 @@ def safe_gemini_generate(client, contents_input):
                     time.sleep(1.5)
                     continue
                 elif "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
-                    st.error("⚠️ 일일 사용 한도가 초과되었습니다. 입력하신 개인 API 키 상태를 확인해 주세요.")
+                    st.error("⚠️ 일일 사용 한도가 초과되었습니다. 개인 API 키 상태를 확인해 주세요.")
                     return None
                 else:
                     break
 
-    st.error("⚠️ 구글 서버 트래픽이 일시적으로 매우 높은 상태입니다. 10초 후 다시 실행 버튼을 눌러주세요.")
+    st.error("⚠️ 구글 서버 트래픽이 일시적으로 높은 상태입니다. 10초 후 다시 시도해 주세요.")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -329,7 +330,7 @@ with main_tab3:
     st.markdown("### 🛠️ 확장 마케팅 스튜디오")
     tab_yt_std, tab_img, tab_inf, tab_cal, tab_copy = st.tabs([
         "🎥 내 유튜브 영상 성과 진단", 
-        "📸 제품 이미지 분석 & AI 썸네일/프롬프트 생성기", 
+        "📸🎥 이미지 & 동영상 AI 종합 분석기", 
         "👥 키워드 기반 인플루언서 탐색", 
         "📅 30일 콘텐츠 달력 생성기",
         "✍️ 마케팅 카피라이팅 추출기"
@@ -372,62 +373,91 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
+    # 📸🎥 이미지 & 동영상 멀티모달 시각 분석 통합 탭
     with tab_img:
-        st.markdown("#### 📸 제품 이미지 기반 시각 분석 & AI 썸네일/프롬프트 기획")
-        col_img1, col_img2 = st.columns([1, 1])
-        with col_img1:
-            uploaded_file = st.file_uploader("제품 또는 광고 예시 이미지 업로드", type=["png", "jpg", "jpeg"])
-            if uploaded_file:
-                input_image = Image.open(uploaded_file)
-                st.image(input_image, caption="업로드 이미지", width=300)
-        with col_img2:
-            img_style_prompt = st.text_area("희망하는 추가 연출 콘셉트 (선택사항)", placeholder="예: 시원한 느낌 강조, 트렌디한 20대 모델 연출", height=100)
-            btn_gen_img = st.button("🖼️ 이미지 분석 및 썸네일/프롬프트 생성 실행", type="primary", use_container_width=True)
+        st.markdown("#### 📸🎥 이미지 및 제작 동영상 파일 AI 정밀 분석")
+        
+        media_type = st.radio("분석할 미디어 유형 선택", ["🖼️ 제품/광고 이미지", "🎬 직접 제작한 동영상 (MP4 / MOV)"], horizontal=True)
+        
+        col_m1, col_m2 = st.columns([1, 1])
+        uploaded_media = None
+        
+        with col_m1:
+            if "이미지" in media_type:
+                uploaded_media = st.file_uploader("이미지 파일 업로드", type=["png", "jpg", "jpeg"], key="up_img_file")
+                if uploaded_media:
+                    st.image(Image.open(uploaded_media), caption="업로드 이미지 미리보기", width=300)
+            else:
+                uploaded_media = st.file_uploader("동영상 파일 업로드 (최대 100MB 권장)", type=["mp4", "mov", "avi"], key="up_vid_file")
+                if uploaded_media:
+                    st.video(uploaded_media)
 
-        if btn_gen_img:
+        with col_m2:
+            media_concept = st.text_area("강조할 제품 소구점 또는 의도한 연출 콘셉트 (선택사항)", placeholder="예: 첫 3초 몰입도 검토, 20대 여성 타겟 숏폼 릴스 연출", height=120)
+            btn_gen_media = st.button("🚀 미디어 시각 분석 및 평가 실행", type="primary", use_container_width=True)
+
+        if btn_gen_media:
             gemini_client = get_gemini_client()
-            if gemini_client and uploaded_file:
-                with st.spinner("이미지를 분석하고 한국어 추천 썸네일 및 AI 프롬프트를 작성 중..."):
-                    img_gen_instructions = f"""
-                    당신은 전문 영상 마케팅 디렉터입니다. 전달된 제품/광고 이미지를 정밀 분석하여 다음 4가지 섹션으로 작성해 주세요.
-                    **중요: 반드시 모든 응답은 자연스러운 한국어로 작성해야 합니다.**
+            if gemini_client and uploaded_media:
+                with st.spinner("AI가 미디어 프레임을 정밀 분석 중입니다..."):
+                    if "이미지" in media_type:
+                        input_img = Image.open(uploaded_media)
+                        prompt = f"""
+                        당신은 수석 영상/광고 마케팅 디렉터입니다. 전달된 이미지를 정밀 분석하여 한국어로 답하세요.
+                        [연출 의도]: {media_concept if media_concept else '기본 연출 최적화'}
 
-                    [추가 희망 연출 콘셉트]: {img_style_prompt if img_style_prompt else "기본 이미지 특성 최대 반영"}
+                        1. 🎨 시각적 특징 및 구도 요약
+                        2. 📌 클릭률(CTR)을 높일 추천 썸네일 기획 (3가지)
+                        3. 🖼️ AI 이미지 생성용 완성형 영문/한글 프롬프트
+                        4. 💡 숏폼(릴스/쇼츠) 활용 마케팅 팁
+                        """
+                        res_media = safe_gemini_generate(gemini_client, [prompt, input_img])
+                    else:
+                        # 동영상 업로드 처리
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
+                            tmp_file.write(uploaded_media.read())
+                            tmp_path = tmp_file.name
 
-                    ---
-                    **1. 🎨 시각적 특징 요약 (한국어)**
-                    - 구도, 색감, 제품 강조 포인트 및 감성 요약
+                        try:
+                            video_file = gemini_client.files.upload(file=tmp_path)
+                            # 동영상 처리 대기
+                            while video_file.state.name == "PROCESSING":
+                                time.sleep(2)
+                                video_file = gemini_client.files.get(name=video_file.name)
 
-                    **2. 📌 클릭률(CTR) 높이는 추천 썸네일 기획 (3가지)**
-                    - [썸네일 제목 카피] / [메인 문구 위치 및 색상] / [추천 배경 연출 설명]
+                            vid_prompt = f"""
+                            당신은 전문 영상 마케팅 디렉터입니다. 제작된 동영상의 시각적 구성, 스토리 흐름, 자막/오디오 밸런스를 분석해 주세요.
+                            반드시 한국어로 자연스럽게 작성해 주세요.
+                            [제작자 의도]: {media_concept if media_concept else '전반적인 완성도 피드백'}
 
-                    **3. 🖼️ AI 이미지 생성용 텍스트 프롬프트 (Midjourney / DALL-E / Flux 전용)**
-                    - 영문 프롬프트 (High quality, photorealistic 등 완성형)
-                    - 한글 프롬프트 번역 및 연출 설명
+                            1. 🎬 동영상 핵심 연출 & 스토리 흐름 분석
+                            2. ⚡ 첫 3초(Hook) 시청자 이탈 방지 몰입도 평가
+                            3. 👁️ 화면 자막 가독성, 색감 및 시각적 개선점 (3가지)
+                            4. 📌 이 영상에 어울리는 추천 썸네일 문구 및 구도 제안
+                            """
+                            res_media = safe_gemini_generate(gemini_client, [vid_prompt, video_file])
+                        except Exception as ex:
+                            st.error(f"동영상 파일 분석 중 오류 발생: {ex}")
+                            res_media = None
 
-                    **4. 💡 숏폼(릴스/쇼츠/틱톡) 활용 마케팅 팁**
-                    - 시선을 사로잡을 첫 3초 화면 구성 제안
-                    """
-                    
-                    res_img = safe_gemini_generate(gemini_client, [img_gen_instructions, input_image])
-                    if res_img:
-                        st.session_state.saved_img_result = res_img
+                    if res_media:
+                        st.session_state.saved_img_result = res_media
 
         if st.session_state.saved_img_result:
             st.divider()
             st.markdown(st.session_state.saved_img_result)
-            save_img_title = st.text_input("저장할 제목 입력", value="제품 이미지 분석 및 썸네일 기획", key="save_img_title")
+            save_img_title = st.text_input("저장할 제목 입력", value="미디어 시각 분석 리포트", key="save_img_title")
             col_ibtn1, col_ibtn2 = st.columns([1, 1])
             with col_ibtn1:
-                if st.button("💾 이미지 분석 보관함에 저장", use_container_width=True):
+                if st.button("💾 시각적 미디어 보관함에 저장", use_container_width=True):
                     st.session_state.saved_items["img_analysis"].append({
                         "title": save_img_title.strip() if save_img_title.strip() else "제목 없음",
                         "content": st.session_state.saved_img_result
                     })
-                    st.success("✅ '이미지 분석 보관함'에 저장되었습니다!")
+                    st.success("✅ '시각적 미디어 보관함'에 저장되었습니다!")
                     st.rerun()
             with col_ibtn2:
-                st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_img_result, file_name="Image_Analysis_Thumbnail.txt", use_container_width=True)
+                st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_img_result, file_name="Media_Analysis.txt", use_container_width=True)
 
     with tab_inf:
         st.markdown("#### 👥 타겟 키워드 기반 인플루언서 매칭")
