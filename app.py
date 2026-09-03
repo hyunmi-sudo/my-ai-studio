@@ -173,7 +173,7 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 429 Resource Exhausted 및 503 과부하 예외 처리 강화
+# 🛡️ 429 및 503 오류 발생 시 친절한 예외 메시지 출력
 def safe_gemini_generate(client, contents_input):
     for attempt in range(3):
         try:
@@ -186,7 +186,7 @@ def safe_gemini_generate(client, contents_input):
         except Exception as e:
             err_msg = str(e)
             if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-                st.error("⚠️ 기본 공유 API 키의 일일 무료 한도(20회)가 초과되었습니다. 사이드바에 개인 Gemini API 키를 입력하시면 연속으로 바로 이용 가능합니다.")
+                st.error("⚠️ 기본 공유 API 키의 일일 무료 한도(20회)가 초과되었습니다. 사이드바에 개인 Gemini API 키를 입력하시면 제한 없이 바로 사용 가능합니다.")
                 return None
             elif "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
                 time.sleep(2 * (attempt + 1))
@@ -275,6 +275,7 @@ with main_tab1:
                     "content": st.session_state.saved_prompt_result
                 })
                 st.success("✅ '영상 프롬프트 보관함'에 저장되었습니다!")
+                st.rerun()
         with col_btn2:
             st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_prompt_result, file_name="Prompt.txt", use_container_width=True)
 
@@ -313,6 +314,7 @@ with main_tab2:
                     "content": st.session_state.saved_plan_result
                 })
                 st.success("✅ '촬영 기획서 보관함'에 저장되었습니다!")
+                st.rerun()
         with col_pbtn2:
             st.download_button("📥 마크다운 다운로드", data=st.session_state.saved_plan_result, file_name="Plan.md", use_container_width=True)
 
@@ -362,9 +364,11 @@ with main_tab3:
                         "content": st.session_state.saved_yt_result
                     })
                     st.success("✅ '유튜브 진단 보관함'에 저장되었습니다!")
+                    st.rerun()
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
+    # 📸 2. 제품 이미지 분석 & 세션 고정 보관함 저장 보완
     with tab_img:
         st.markdown("#### 📸 제품 이미지 기반 시각 분석 & AI 썸네일/프롬프트 기획")
         col_img1, col_img2 = st.columns([1, 1])
@@ -418,6 +422,7 @@ with main_tab3:
                         "content": st.session_state.saved_img_result
                     })
                     st.success("✅ '이미지 분석 보관함'에 저장되었습니다!")
+                    st.rerun()
             with col_ibtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_img_result, file_name="Image_Analysis_Thumbnail.txt", use_container_width=True)
 
@@ -448,6 +453,7 @@ with main_tab3:
                         "content": st.session_state.saved_inf_result
                     })
                     st.success("✅ '인플루언서 매칭 보관함'에 저장되었습니다!")
+                    st.rerun()
             with col_infbtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_inf_result, file_name="Influencer_Matching.txt", use_container_width=True)
 
@@ -474,6 +480,7 @@ with main_tab3:
                         "content": st.session_state.saved_cal_result
                     })
                     st.success("✅ '30일 달력 보관함'에 저장되었습니다!")
+                    st.rerun()
             with col_cbtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_cal_result, file_name="Content_Calendar.txt", use_container_width=True)
 
@@ -507,5 +514,6 @@ with main_tab3:
                         "content": st.session_state.saved_copy_result
                     })
                     st.success("✅ '카피라이팅 보관함'에 저장되었습니다!")
+                    st.rerun()
             with col_cpbtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_copy_result, file_name="Copywriting.txt", use_container_width=True)
