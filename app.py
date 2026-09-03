@@ -72,10 +72,17 @@ if "saved_inf_result" not in st.session_state: st.session_state.saved_inf_result
 if "saved_cal_result" not in st.session_state: st.session_state.saved_cal_result = None
 if "saved_copy_result" not in st.session_state: st.session_state.saved_copy_result = None
 
+# 👁️ 보관함 내용 팝업 모달창 정의
+@st.dialog("📄 저장 내용 한눈에 보기", width="large")
+def show_detail_dialog(title, content):
+    st.markdown(f"### 📌 {title}")
+    st.divider()
+    st.markdown(content)
+
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
 st.divider()
 
-# 🔑 사이드바 API 설정
+# 🔑 사이드바 API 설정 및 보관함
 with st.sidebar:
     st.header("🔑 Gemini API 키 설정")
     
@@ -101,68 +108,31 @@ with st.sidebar:
     st.divider()
     st.header("📂 카테고리별 보관함")
     
-    with st.expander("🎬 영상 프롬프트 보관함", expanded=False):
-        if st.session_state.saved_items.get("prompts"):
-            for idx, item in enumerate(st.session_state.saved_items["prompts"], 1):
-                st.markdown(f"**📌 {item['title']}**")
-                st.code(item['content'], language="markdown")
-                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_p_{idx}")
-                st.markdown("---")
-        else: st.caption("저장된 프롬프트가 없습니다.")
+    categories = [
+        ("🎬 영상 프롬프트 보관함", "prompts", ".txt"),
+        ("📄 촬영 기획서 보관함", "plans", ".md"),
+        ("🎥 유튜브 진단 보관함", "yt_diag", ".txt"),
+        ("📸 시각적 미디어 분석 보관함", "img_analysis", ".txt"),
+        ("👥 인플루언서 매칭 보관함", "influencer", ".txt"),
+        ("📅 30일 달력 보관함", "calendar", ".txt"),
+        ("✍️ 카피라이팅 보관함", "copywriting", ".txt")
+    ]
 
-    with st.expander("📄 촬영 기획서 보관함", expanded=False):
-        if st.session_state.saved_items.get("plans"):
-            for idx, item in enumerate(st.session_state.saved_items["plans"], 1):
-                st.markdown(f"**📌 {item['title']}**")
-                st.code(item['content'], language="markdown")
-                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.md", key=f"dl_pl_{idx}")
-                st.markdown("---")
-        else: st.caption("저장된 기획서가 없습니다.")
-
-    with st.expander("🎥 유튜브 진단 보관함", expanded=False):
-        if st.session_state.saved_items.get("yt_diag"):
-            for idx, item in enumerate(st.session_state.saved_items["yt_diag"], 1):
-                st.markdown(f"**📌 {item['title']}**")
-                st.code(item['content'], language="markdown")
-                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_yt_{idx}")
-                st.markdown("---")
-        else: st.caption("저장된 진단 리포트가 없습니다.")
-
-    with st.expander("📸 시각적 미디어 분석 보관함", expanded=False):
-        if st.session_state.saved_items.get("img_analysis"):
-            for idx, item in enumerate(st.session_state.saved_items["img_analysis"], 1):
-                st.markdown(f"**📌 {item['title']}**")
-                st.code(item['content'], language="markdown")
-                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_img_{idx}")
-                st.markdown("---")
-        else: st.caption("저장된 분석 결과가 없습니다.")
-
-    with st.expander("👥 인플루언서 매칭 보관함", expanded=False):
-        if st.session_state.saved_items.get("influencer"):
-            for idx, item in enumerate(st.session_state.saved_items["influencer"], 1):
-                st.markdown(f"**📌 {item['title']}**")
-                st.code(item['content'], language="markdown")
-                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_inf_{idx}")
-                st.markdown("---")
-        else: st.caption("저장된 매칭 가이드가 없습니다.")
-
-    with st.expander("📅 30일 달력 보관함", expanded=False):
-        if st.session_state.saved_items.get("calendar"):
-            for idx, item in enumerate(st.session_state.saved_items["calendar"], 1):
-                st.markdown(f"**📌 {item['title']}**")
-                st.code(item['content'], language="markdown")
-                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_cal_{idx}")
-                st.markdown("---")
-        else: st.caption("저장된 달력이 없습니다.")
-
-    with st.expander("✍️ 카피라이팅 보관함", expanded=False):
-        if st.session_state.saved_items.get("copywriting"):
-            for idx, item in enumerate(st.session_state.saved_items["copywriting"], 1):
-                st.markdown(f"**📌 {item['title']}**")
-                st.code(item['content'], language="markdown")
-                st.download_button("💾 다운로드", item['content'], file_name=f"{item['title']}.txt", key=f"dl_copy_{idx}")
-                st.markdown("---")
-        else: st.caption("저장된 카피가 없습니다.")
+    for label, cat_key, ext in categories:
+        with st.expander(label, expanded=False):
+            items = st.session_state.saved_items.get(cat_key, [])
+            if items:
+                for idx, item in enumerate(items, 1):
+                    st.markdown(f"**📌 {item['title']}**")
+                    col_b1, col_b2 = st.columns([1, 1])
+                    with col_b1:
+                        if st.button("👁️ 보기", key=f"v_{cat_key}_{idx}", use_container_width=True):
+                            show_detail_dialog(item['title'], item['content'])
+                    with col_b2:
+                        st.download_button("💾 다운", item['content'], file_name=f"{item['title']}{ext}", key=f"dl_{cat_key}_{idx}", use_container_width=True)
+                    st.markdown("---")
+            else:
+                st.caption("저장된 항목이 없습니다.")
 
 def get_gemini_client():
     if not active_gemini_key:
@@ -373,7 +343,6 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
-    # 📸🎥 이미지 & 동영상 멀티모달 시각 분석 통합 탭
     with tab_img:
         st.markdown("#### 📸🎥 이미지 및 제작 동영상 파일 AI 정밀 분석")
         
@@ -413,14 +382,12 @@ with main_tab3:
                         """
                         res_media = safe_gemini_generate(gemini_client, [prompt, input_img])
                     else:
-                        # 동영상 업로드 처리
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
                             tmp_file.write(uploaded_media.read())
                             tmp_path = tmp_file.name
 
                         try:
                             video_file = gemini_client.files.upload(file=tmp_path)
-                            # 동영상 처리 대기
                             while video_file.state.name == "PROCESSING":
                                 time.sleep(2)
                                 video_file = gemini_client.files.get(name=video_file.name)
@@ -460,7 +427,7 @@ with main_tab3:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_img_result, file_name="Media_Analysis.txt", use_container_width=True)
 
     with tab_inf:
-        st.markdown("#### 👥 타겟 키워드 기반 인플루언서 매칭")
+        st.markdown("#### 👥 타겟 키워드 기반 인플루언서 탐색")
         col_inf1, col_inf2 = st.columns([2, 1])
         with col_inf1:
             inf_keyword = st.text_input("타겟 키워드", placeholder="예: 친환경")
