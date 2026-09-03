@@ -8,12 +8,42 @@ import yt_dlp
 import pandas as pd
 from PIL import Image
 
-st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide")
+st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide", page_icon="⚡")
 
-# Secrets에서 Gemini API 키 백그라운드 자동 로드
+# 기본 Secrets API 키
 saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# 💾 전 카테고리 저장소 안전 초기화 (KeyError 방지)
+# 🎨 UI 글자색 및 레이아웃 가독성 보완 스타일
+st.markdown("""
+    <style>
+    html, body, [data-testid="stAppViewContainer"], .stApp {
+        background-color: #F8FAFC !important;
+        color: #0F172A !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #F1F5F9 !important;
+        border-right: 1px solid #E2E8F0 !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: #0F172A !important;
+    }
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label {
+        color: #0F172A !important;
+        font-weight: 800 !important;
+    }
+    div[data-testid="stAlert"] * {
+        color: #0F172A !important;
+        font-weight: 600 !important;
+    }
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
+        background-color: #FFFFFF !important;
+        border-color: #CBD5E1 !important;
+        color: #0F172A !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 💾 카테고리 저장소 및 결과 초기화
 default_items = {
     "prompts": [],      # 🎬 영상 프롬프트
     "plans": [],        # 📄 촬영 기획서
@@ -31,7 +61,6 @@ else:
         if key not in st.session_state.saved_items:
             st.session_state.saved_items[key] = val
 
-# 생성 결과 세션 보관
 if "saved_prompt_result" not in st.session_state: st.session_state.saved_prompt_result = None
 if "saved_plan_result" not in st.session_state: st.session_state.saved_plan_result = None
 if "saved_yt_result" not in st.session_state: st.session_state.saved_yt_result = None
@@ -40,7 +69,7 @@ if "saved_inf_result" not in st.session_state: st.session_state.saved_inf_result
 if "saved_cal_result" not in st.session_state: st.session_state.saved_cal_result = None
 if "saved_copy_result" not in st.session_state: st.session_state.saved_copy_result = None
 
-# 샘플 데이터 초기화 (인게이지먼트 / 음원 추이 데이터)
+# 📊 사용자 수정 가능 원본 데이터 초기화
 if "analytics_data" not in st.session_state:
     st.session_state.analytics_data = pd.DataFrame([
         {"날짜": "2026-08-25", "플랫폼": "인스타그램 릴스", "콘텐츠 제목": "민트볼 챌린지 1탄", "사용 음원": "Minty Fresh Beat", "조회수": 45000, "좋아요": 3200, "댓글": 180, "공유수": 420},
@@ -51,15 +80,49 @@ if "analytics_data" not in st.session_state:
         {"날짜": "2026-08-30", "플랫폼": "틱톡", "콘텐츠 제목": "카페에서 몰래 먹는 민트볼", "사용 음원": "Minty Fresh Beat", "조회수": 95000, "좋아요": 8700, "댓글": 410, "공유수": 920},
     ])
 
+# 📈 음원 사이트 추이 기본 데이터 초기화
+if "music_trend_data" not in st.session_state:
+    dates = pd.date_range(start="2026-08-25", periods=7, freq="D").strftime("%Y-%m-%d")
+    st.session_state.music_trend_data = {
+        "Minty Fresh Beat": pd.DataFrame({
+            "날짜": dates,
+            "유튜브 뮤직 (회)": [12000, 15400, 21000, 28000, 35000, 42000, 51000],
+            "멜론 (회)": [8500, 9200, 11500, 14200, 18900, 23000, 27500],
+            "스포티파이 (회)": [5400, 6800, 8900, 12000, 15800, 19500, 24000]
+        }).set_index("날짜"),
+        "Cool Summer Sound": pd.DataFrame({
+            "날짜": dates,
+            "유튜브 뮤직 (회)": [8000, 9500, 11000, 13500, 16000, 19000, 23000],
+            "멜론 (회)": [4200, 5100, 6800, 8200, 9900, 12000, 14500],
+            "스포티파이 (회)": [3100, 3900, 4800, 6000, 7500, 9100, 11000]
+        }).set_index("날짜")
+    }
+
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
 st.caption("결과물 확인 후 원하는 제목을 지정하여 카테고리별 저장소에 보관할 수 있습니다.")
 st.divider()
 
-# 사이드바 API 설정 & 카테고리별 보관함
+# 🔑 사이드바 사용자 API 키 설정 및 보관함
 with st.sidebar:
     st.header("🔑 API 설정")
-    st.success("✅ Google Gemini API 연결 완료")
     
+    user_gemini_key = st.text_input(
+        "개인 Gemini API 키 입력", 
+        type="password", 
+        placeholder="AIzaSy...",
+        help="Secrets 키 트래픽 한도 초과 시 개인 API 키를 입력하면 바로 사용 가능합니다."
+    )
+    
+    active_gemini_key = user_gemini_key.strip() if user_gemini_key.strip() else saved_gemini_key.strip()
+    
+    if active_gemini_key:
+        if user_gemini_key.strip():
+            st.success("✅ 사용자 지정 API 키 연결 완료")
+        else:
+            st.success("✅ 기본 공유 API 키 연결 완료")
+    else:
+        st.warning("⚠️ 등록된 Gemini API 키가 없습니다.")
+        
     claude_key = st.text_input("Anthropic Claude API Key (선택)", type="password")
     
     st.divider()
@@ -129,11 +192,11 @@ with st.sidebar:
         else: st.caption("저장된 카피가 없습니다.")
 
 def get_gemini_client():
-    if not saved_gemini_key:
-        st.error("⚠️ Streamlit Secrets에 GEMINI_API_KEY가 설정되어 있지 않습니다.")
+    if not active_gemini_key:
+        st.error("⚠️ 사용할 Gemini API 키가 누락되었습니다. 사이드바에 입력해 주세요.")
         return None
     try:
-        return genai.Client(api_key=saved_gemini_key.strip())
+        return genai.Client(api_key=active_gemini_key)
     except Exception as e:
         st.error(f"Gemini 클라이언트 초기화 실패: {e}")
         return None
@@ -187,7 +250,7 @@ def get_youtube_info(url):
 main_tab1, main_tab2, main_tab3 = st.tabs([
     "🎬 1. 영상 제작 전용 AI 프롬프트 생성기", 
     "📄 2. 영상 종합 기획서 & 촬영계획서 작성기",
-    "🛠️ 3. 확장 마케팅 스튜디오 & 대시보드"
+    "🛠️ 3. 확장 마케팅 스튜디오 & 데이터 대시보드"
 ])
 
 # ==========================================
@@ -283,33 +346,62 @@ with main_tab3:
     ])
 
     # ------------------------------------------
-    # 📊 NEW 1. 발행 콘텐츠 인게이지먼트 & 음원 분석 대시보드
+    # 📊 1. 발행 콘텐츠 인게이지먼트 & 음원 분석 대시보드 (자유 입력 반영)
     # ------------------------------------------
     with tab_dashboard:
         st.markdown("#### 📊 발행 콘텐츠 종합 인게이지먼트 장표")
-        st.caption("발행된 전체 콘텐츠의 성과 지표를 실시간 확인하고 엑셀 파일로 바로 다운로드할 수 있습니다.")
+        st.caption("💡 표 맨 아래 빈 줄을 눌러 새로운 음원 및 콘텐츠 수치를 자유롭게 추가해 보세요. 작성하신 모든 음원이 아래 플랫폼 카운팅 및 음원 추이 분석에 자동 적용됩니다!")
 
-        df = st.session_state.analytics_data.copy()
+        # st.data_editor를 사용하여 데이터 직접 수정 및 새 음원 추가 가능
+        edited_df = st.data_editor(
+            st.session_state.analytics_data,
+            num_rows="dynamic",
+            use_container_width=True,
+            key="data_editor_v2",
+            column_config={
+                "플랫폼": st.column_config.SelectboxColumn(
+                    "플랫폼 선택",
+                    options=["인스타그램 릴스", "유튜브 쇼츠", "틱톡"],
+                    required=True
+                ),
+                "사용 음원": st.column_config.TextColumn(
+                    "사용 음원명 (자유 작성)",
+                    required=True
+                )
+            }
+        )
         
-        # 인게이지먼트 계산식: (좋아요 + 댓글 + 공유수) / 조회수 * 100
-        df["총 인게이지먼트 수"] = df["좋아요"] + df["댓글"] + df["공유수"]
-        df["인게이지먼트율(%)"] = ((df["총 인게이지먼트 수"] / df["조회수"]) * 100).round(2)
+        # 수정된 데이터 세션 저장
+        st.session_state.analytics_data = edited_df
+        df = edited_df.copy()
+        
+        # 숫자 타입 보장 및 인게이지먼트 계산
+        for col in ["조회수", "좋아요", "댓글", "공유수"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-        # 주요 메트릭 요약
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        col_m1.metric("총 콘텐츠 발행수", f"{len(df)}개")
-        col_m2.metric("누적 총 조회수", f"{df['조회수'].sum():,}회")
-        col_m3.metric("누적 총 반응(좋아요/댓글/공유)", f"{df['총 인게이지먼트 수'].sum():,}개")
-        col_m4.metric("평균 인게이지먼트율", f"{df['인게이지먼트율(%)'].mean():.2f}%")
+        df["총 반응수"] = df["좋아요"] + df["댓글"] + df["공유수"]
+        df["인게이지먼트율(%)"] = df.apply(
+            lambda r: round((r["총 반응수"] / r["조회수"] * 100), 2) if r["조회수"] > 0 else 0.0, axis=1
+        )
 
         st.divider()
 
-        # 장표 및 엑셀 다운로드 섹션
+        # 주요 요약 지표 (Metrics)
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1.metric("총 콘텐츠 발행수", f"{len(df)}개")
+        col_m2.metric("누적 총 조회수", f"{int(df['조회수'].sum()):,}회")
+        col_m3.metric("누적 총 반응(좋아요/댓글/공유)", f"{int(df['총 반응수'].sum()):,}개")
+        avg_eng = df['인게이지먼트율(%)'].mean() if len(df) > 0 else 0
+        col_m4.metric("평균 인게이지먼트율", f"{avg_eng:.2f}%")
+
+        st.divider()
+
+        # 장표 및 엑셀 다운로드
         col_dash_title, col_dash_dl = st.columns([3, 1])
         with col_dash_title:
-            st.markdown("##### 📄 전체 콘텐츠 성과 장표")
+            st.markdown("##### 📄 수정한 수치 반영 엑셀 다운로드")
         with col_dash_dl:
-            # Pandas DataFrame -> Excel 바이너리 변환
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='콘텐츠인게이지먼트')
@@ -318,61 +410,66 @@ with main_tab3:
             st.download_button(
                 label="📥 엑셀(Excel) 데이터 다운로드",
                 data=excel_data,
-                file_name="콘텐츠_인게이지먼트_성과장표.xlsx",
+                file_name="사용자입력_콘텐츠_성과장표.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
-        # 성과 데이터프레임 렌더링
-        st.dataframe(
-            df[["날짜", "플랫폼", "콘텐츠 제목", "사용 음원", "조회수", "좋아요", "댓글", "공유수", "인게이지먼트율(%)"]],
-            use_container_width=True,
-            hide_index=True
-        )
+        st.divider()
+
+        # ------------------------------------------
+        # 🎵 음원별 플랫폼 발행수 카운팅 (내가 쓴 음원 자동 반영)
+        # ------------------------------------------
+        st.markdown("#### 🎵 작성하신 음원별 플랫폼 발행 수 집계")
+        st.caption("위 표에서 직접 쓰신 음원명이 실시간으로 자동 카운팅됩니다.")
+
+        valid_df = df[df["사용 음원"].notnull() & (df["사용 음원"] != "")]
+        if not valid_df.empty:
+            music_counts = valid_df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
+            
+            for plat in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
+                if plat not in music_counts.columns:
+                    music_counts[plat] = 0
+                    
+            music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
+            music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
+
+            st.dataframe(music_counts, use_container_width=True)
+        else:
+            st.info("상단 표에 음원명을 입력하시면 음원별 발행 수 집계표가 나타납니다.")
 
         st.divider()
 
         # ------------------------------------------
-        # 🎵 음원별 플랫폼 카운팅 (릴스 / 쇼츠 / 틱톡)
-        # ------------------------------------------
-        st.markdown("#### 🎵 음원별 플랫폼 발행 수 집계")
-        st.caption("특정 음원을 사용해 만들어진 각 플랫폼별(릴스 / 쇼츠 / 틱톡) 콘텐츠 개수를 카운팅합니다.")
-
-        music_counts = df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
-        
-        # 기본 카테고리 기둥 안전 확보
-        for plat in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
-            if plat not in music_counts.columns:
-                music_counts[plat] = 0
-                
-        music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
-        music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
-
-        st.dataframe(music_counts, use_container_width=True)
-
-        st.divider()
-
-        # ------------------------------------------
-        # 📈 음원 사이트별 일자별 추이 (유튜브 뮤직 / 멜론 / 스포티파이)
+        # 📈 음원 사이트별 일자별 추이 (내가 쓴 음원 데이터 수정 가능)
         # ------------------------------------------
         st.markdown("#### 📈 음원 사이트별 일자별 트렌드 추이")
-        st.caption("유튜브 뮤직, 멜론, 스포티파이 플랫폼에서의 음원 일별 일자별 일일 재생수/스트리밍 데이터입니다.")
+        st.caption("직접 입력하신 음원을 선택한 후, 해당 음원의 플랫폼별 스트리밍 수치를 관리할 수 있습니다.")
 
-        selected_music = st.selectbox("분석할 음원 선택", df["사용 음원"].unique())
+        active_songs = list(valid_df["사용 음원"].unique()) if not valid_df.empty else ["Minty Fresh Beat"]
+        selected_music = st.selectbox("분석 및 수정할 음원 선택", active_songs)
 
-        # 샘플 시각화 데이터 생성
-        date_range = pd.date_range(start="2026-08-25", periods=7, freq="D")
-        trend_df = pd.DataFrame({
-            "날짜": date_range.strftime("%Y-%m-%d"),
-            "유튜브 뮤직 (회)": [12000, 15400, 21000, 28000, 35000, 42000, 51000],
-            "멜론 (회)": [8500, 9200, 11500, 14200, 18900, 23000, 27500],
-            "스포티파이 (회)": [5400, 6800, 8900, 12000, 15800, 19500, 24000]
-        }).set_index("날짜")
-
-        st.line_chart(trend_df)
+        dates = pd.date_range(start="2026-08-25", periods=7, freq="D").strftime("%Y-%m-%d")
         
-        with st.expander("📊 음원 사이트별 일자별 상세 데이터 보기"):
-            st.dataframe(trend_df, use_container_width=True)
+        # 선택된 음원의 추이 데이터가 없으면 자동 생성
+        if selected_music not in st.session_state.music_trend_data:
+            st.session_state.music_trend_data[selected_music] = pd.DataFrame({
+                "날짜": dates,
+                "유튜브 뮤직 (회)": [1000, 2000, 3000, 4000, 5000, 6000, 7000],
+                "멜론 (회)": [500, 1000, 1500, 2000, 2500, 3000, 3500],
+                "스포티파이 (회)": [300, 600, 900, 1200, 1500, 1800, 2100]
+            }).set_index("날짜")
+
+        # 해당 음원의 스트리밍 추이 데이터 차트 출력
+        st.line_chart(st.session_state.music_trend_data[selected_music])
+        
+        with st.expander(f"📊 '{selected_music}' 일자별 수치 직접 입력/수정하기"):
+            edited_trend = st.data_editor(
+                st.session_state.music_trend_data[selected_music],
+                use_container_width=True,
+                key=f"trend_editor_{selected_music}"
+            )
+            st.session_state.music_trend_data[selected_music] = edited_trend
 
     # 2. 유튜브 성과 진단
     with tab_yt_std:
