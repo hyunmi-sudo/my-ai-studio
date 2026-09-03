@@ -173,12 +173,12 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 트래픽 503 회피용 스마트 재시도 핸들러
+# 🛡️ 최신 gemini-3.6-flash 정식 모델 및 트래픽 503 자동 재시도
 def safe_gemini_generate(client, contents_input):
     for attempt in range(3):
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.6-flash',
                 contents=contents_input
             )
             if response and response.text:
@@ -191,7 +191,7 @@ def safe_gemini_generate(client, contents_input):
             else:
                 st.error(f"⚠️ API 호출 오류: {err_msg}")
                 return None
-    st.error("⚠️ 공유 API 키 트래픽이 많아 응답이 지연되었습니다. 개인 Gemini API 키를 등록하면 대기 없이 바로 동작합니다.")
+    st.error("⚠️ 구글 서버 트래픽이 지연되고 있습니다. 개인 Gemini API 키를 등록하면 대기 없이 바로 동작합니다.")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
