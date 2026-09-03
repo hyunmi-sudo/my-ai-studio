@@ -11,10 +11,9 @@ from PIL import Image
 
 st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide", page_icon="⚡")
 
-# 기본 Secrets API 키
 default_secrets_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# 🎨 완전 다크 모드 스타일 고정
+# 🎨 다크 모드 스타일 고정
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -51,7 +50,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 💾 카테고리 저장소 및 세션 초기화
 default_items = {
     "prompts": [], "plans": [], "yt_diag": [], 
     "img_analysis": [], "influencer": [], "calendar": [], "copywriting": []
@@ -72,18 +70,15 @@ if "saved_inf_result" not in st.session_state: st.session_state.saved_inf_result
 if "saved_cal_result" not in st.session_state: st.session_state.saved_cal_result = None
 if "saved_copy_result" not in st.session_state: st.session_state.saved_copy_result = None
 
-# 📊 마케팅 성과 원본 데이터 세션 초기화
 if "analytics_data" not in st.session_state:
     st.session_state.analytics_data = pd.DataFrame([
         {"날짜": "2026-08-25", "플랫폼": "인스타그램 릴스", "콘텐츠 제목": "민트볼 챌린지 1탄", "사용 음원": "Minty Fresh Beat", "조회수": 45000, "좋아요": 3200, "댓글": 180, "공유수": 420},
         {"날짜": "2026-08-26", "플랫폼": "유튜브 쇼츠", "콘텐츠 제목": "한 손에 쏙 들어오는 민트볼", "사용 음원": "Minty Fresh Beat", "조회수": 82000, "좋아요": 6100, "댓글": 340, "공유수": 890},
-        {"날짜": "2026-08-27", "플랫폼": "틱톡", "콘텐츠 제목": "상쾌함 폭발 리액션", "사용 음원": "Minty Fresh Beat", "조회수": 120000, "좋아요": 11500, "댓글": 620, "공유수": 1450},
     ])
 
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
 st.divider()
 
-# 🔑 사이드바 API 설정 영역
 with st.sidebar:
     st.header("🔑 Gemini API 키 설정")
     
@@ -231,7 +226,6 @@ def get_youtube_info(url):
     except Exception:
         return {'url': url, 'title': '정보 수집 실패', 'views': 0, 'likes': 0, 'comments': 0, 'channel': 'N/A'}
 
-# 🛡️ 쇼츠 음원 메타데이터 탐색 보완 (에러 완벽 방지)
 def extract_auto_yt_data(url):
     ydl_opts = {
         'quiet': True,
@@ -277,7 +271,7 @@ def extract_auto_yt_data(url):
                 "댓글": info.get('comment_count') or 0,
                 "공유수": 0
             }
-    except Exception as e:
+    except Exception:
         return {
             "날짜": time.strftime("%Y-%m-%d"),
             "플랫폼": "유튜브 쇼츠" if "shorts" in url.lower() else "유튜브",
@@ -662,27 +656,35 @@ with main_tab4:
         )
         st.session_state.analytics_data = edited_df
 
+    # 4-2 서브 탭: 세션 데이터 원본 동적 집계 보완 (수정 완료)
     with sub_dash2:
         st.markdown("#### 🎵 음원별 플랫폼 발행 수 자동 집계")
-        valid_df = st.session_state.analytics_data[
-            st.session_state.analytics_data["사용 음원"].notnull() & (st.session_state.analytics_data["사용 음원"] != "")
-        ]
+        
+        # 항상 실시간 세션 데이터에서 유효한 음원만 추출
+        current_data = st.session_state.analytics_data.copy()
+        valid_df = current_data[current_data["사용 음원"].notnull() & (current_data["사용 음원"] != "")]
+        
         if not valid_df.empty:
             music_counts = valid_df.groupby(["사용 음원", "플랫폼"]).size().unstack(fill_value=0)
+            
+            # 카테고리 열 보장
             for p in ["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]:
                 if p not in music_counts.columns:
                     music_counts[p] = 0
+                    
             music_counts = music_counts[["인스타그램 릴스", "유튜브 쇼츠", "틱톡"]]
             music_counts["총 제작 콘텐츠 수"] = music_counts.sum(axis=1)
+            
             st.dataframe(music_counts, use_container_width=True)
         else:
             st.info("등록된 데이터가 없습니다.")
 
+    # 4-3 서브 탭: 실시간 세션 음원 대상 트렌드 집계
     with sub_dash3:
         st.markdown("#### 📈 음원 사이트별 일자별 트렌드 추이")
-        valid_df = st.session_state.analytics_data[
-            st.session_state.analytics_data["사용 음원"].notnull() & (st.session_state.analytics_data["사용 음원"] != "")
-        ]
+        current_data = st.session_state.analytics_data.copy()
+        valid_df = current_data[current_data["사용 음원"].notnull() & (current_data["사용 음원"] != "")]
+        
         song_list = list(valid_df["사용 음원"].unique()) if not valid_df.empty else ["Minty Fresh Beat"]
         selected_song = st.selectbox("분석할 음원 선택", song_list)
 
