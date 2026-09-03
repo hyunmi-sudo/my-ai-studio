@@ -173,22 +173,17 @@ def get_gemini_client():
         st.error(f"Gemini 초기화 오류: {e}")
         return None
 
-# 🛡️ 최신 google-genai 규격 보안 수정 함수
+# 🛡️ 최신 google-genai 정식 모델 단일화
 def safe_gemini_generate(client, contents_input):
-    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash']
-    last_error = ""
-    for m in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=m,
-                contents=contents_input
-            )
-            if response and response.text:
-                return response.text
-        except Exception as e:
-            last_error = str(e)
-            continue
-    st.error(f"⚠️ API 생성 오류 발생: {last_error}")
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=contents_input
+        )
+        if response and response.text:
+            return response.text
+    except Exception as e:
+        st.error(f"⚠️ API 생성 오류 발생: {e}")
     return None
 
 def generate_claude_or_gemini(prompt, gemini_client):
@@ -359,7 +354,7 @@ with main_tab3:
             with col_ybtn2:
                 st.download_button("📥 텍스트 다운로드", data=st.session_state.saved_yt_result, file_name="YouTube_Diagnosis.txt", use_container_width=True)
 
-    # 📸 2. 제품 이미지 분석 & AI 썸네일/프롬프트 생성기 (한국어 보장)
+    # 📸 2. 제품 이미지 분석 & AI 썸네일/프롬프트 생성기
     with tab_img:
         st.markdown("#### 📸 제품 이미지 기반 시각 분석 & AI 썸네일/프롬프트 기획")
         col_img1, col_img2 = st.columns([1, 1])
