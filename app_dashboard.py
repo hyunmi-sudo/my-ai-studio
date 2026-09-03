@@ -10,53 +10,8 @@ from PIL import Image
 
 st.set_page_config(page_title="AI 영상 제작 & 마케팅 스튜디오 Pro", layout="wide", page_icon="⚡")
 
-# 기본 Secrets API 키
+# Secrets API 키
 saved_gemini_key = st.secrets.get("GEMINI_API_KEY", "")
-
-# 🎨 UI 개선: 눈이 편안한 깔끔한 라이트 테마 & 고대비 스타일링
-st.markdown("""
-    <style>
-    html, body, [data-testid="stAppViewContainer"], .stApp {
-        background-color: #F8FAFC !important;
-        color: #0F172A !important;
-    }
-    [data-testid="stSidebar"] {
-        background-color: #FFFFFF !important;
-        border-right: 1px solid #E2E8F0 !important;
-    }
-    [data-testid="stSidebar"] * {
-        color: #0F172A !important;
-    }
-    /* 테이블 및 데이터 에디터 라이트 테마 강제 적용 */
-    div[data-testid="stDataEditor"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid #CBD5E1 !important;
-        border-radius: 8px !important;
-    }
-    .stDataFrame {
-        background-color: #FFFFFF !important;
-    }
-    /* 경고, 안내 박스 스타일 */
-    div[data-testid="stAlert"] * {
-        color: #0F172A !important;
-        font-weight: 600 !important;
-    }
-    /* 입력창 깔끔한 스타일ing */
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
-        background-color: #FFFFFF !important;
-        border-color: #CBD5E1 !important;
-        color: #0F172A !important;
-    }
-    /* 버튼 눈에 띄는 주황 그라데이션 */
-    .stButton>button {
-        background: linear-gradient(135deg, #FF6B00 0%, #E65100 100%) !important;
-        color: #FFFFFF !important;
-        border-radius: 8px !important;
-        border: none !important;
-        font-weight: 700 !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 # 💾 저장소 및 데이터 초기화
 default_items = {
@@ -89,7 +44,7 @@ if "analytics_data" not in st.session_state:
 st.title("⚡ AI 영상 제작 & 올인원 마케팅 스튜디오 Pro")
 st.divider()
 
-# 🔑 사이드바 API 설정 영역
+# 🔑 사이드바 API 설정
 with st.sidebar:
     st.header("🔑 Gemini API 설정")
     user_gemini_key = st.text_input("개인 Gemini API 키 입력", type="password", placeholder="AIzaSy...")
@@ -146,7 +101,6 @@ main_tab1, main_tab2, main_tab3 = st.tabs([
     "🛠️ 3. 마케팅 성과 대시보드"
 ])
 
-# TAB 1 & TAB 2 간략화 연동
 with main_tab1:
     p_topic = st.text_input("영상 주제 / 제품명", placeholder="예: 민트볼 숏폼 홍보")
     p_detail = st.text_area("핵심 메시지", placeholder="예: 휴대성과 상쾌함 강조")
@@ -165,11 +119,11 @@ with main_tab2:
             res_pl = safe_gemini_generate(g_client, f"프로젝트: {g_title}, 목적: {g_goal} 촬영계획서 작성")
             if res_pl: st.success(res_pl)
 
-# TAB 3: 마케팅 성과 대시보드 (자유 입력 & 실시간 자동 연동)
+# TAB 3: 마케팅 성과 대시보드
 with main_tab3:
     st.subheader("📊 발행 콘텐츠 종합 성과 관리 대시보드")
     
-    # ➕ 신규 데이터 직접 입력 폼
+    # 데이터 직접 등록 폼
     with st.expander("➕ 새 콘텐츠 성과 데이터 등록하기", expanded=True):
         col_in1, col_in2, col_in3 = st.columns(3)
         with col_in1:
@@ -184,7 +138,7 @@ with main_tab3:
             in_comments = st.number_input("댓글", min_value=0, value=30)
             in_shares = st.number_input("공유수", min_value=0, value=50)
 
-        if st.button("✨ 데이터 목록에 즉시 추가하기", use_container_width=True):
+        if st.button("✨ 데이터 목록에 즉시 추가하기", use_container_width=True, type="primary"):
             new_row = pd.DataFrame([{
                 "날짜": str(in_date),
                 "플랫폼": in_platform,
@@ -196,11 +150,11 @@ with main_tab3:
                 "공유수": in_shares
             }])
             st.session_state.analytics_data = pd.concat([st.session_state.analytics_data, new_row], ignore_index=True)
-            st.success(f"✅ '{in_title}' 콘텐츠가 추가되었습니다!")
+            st.success(f"✅ '{in_title}' 콘텐츠가 성공적으로 추가되었습니다!")
 
     st.divider()
 
-    # 📝 성과 데이터 가공 및 인게이지먼트 자동 계산
+    # 데이터 가공 및 수식 계산
     df = st.session_state.analytics_data.copy()
     
     for c in ["조회수", "좋아요", "댓글", "공유수"]:
@@ -239,21 +193,21 @@ with main_tab3:
             use_container_width=True
         )
 
-    # 라이트 톤 표 렌더링 (편집 가능)
+    # 기본 깔끔한 표
     edited_df = st.data_editor(
         df,
         use_container_width=True,
         num_rows="dynamic",
-        key="main_data_editor"
+        key="clean_main_editor"
     )
     
     st.session_state.analytics_data = edited_df
 
     st.divider()
 
-    # 3. 🎵 플랫폼별 음원 발행 수 자동 집계 (실시간 연동)
+    # 3. 🎵 플랫폼별 음원 발행 수 자동 집계
     st.markdown("#### 🎵 음원별 플랫폼 발행 수 자동 집계")
-    st.caption("위에서 새로 추가하거나 수정한 음원 데이터가 실시간 집계됩니다.")
+    st.caption("위 표에 추가되거나 작성된 음원명이 실시간 카운트됩니다.")
 
     valid_df = edited_df[edited_df["사용 음원"].notnull() & (edited_df["사용 음원"] != "")]
     
